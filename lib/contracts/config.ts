@@ -35,3 +35,13 @@ export const EXPLORER_BASE = CHAIN.blockExplorers.default.url;
 
 export const explorerAddress = (a: string) => `${EXPLORER_BASE}/address/${a}`;
 export const explorerTx = (h: string) => `${EXPLORER_BASE}/tx/${h}`;
+
+/**
+ * Bloc de création du contrat, relevé dans
+ * `broadcast/DeployPayroll.s.sol/11155111/run-latest.json`. Il borne par le bas
+ * la reconstitution de l'historique : avant ce bloc, l'adresse ne portait aucun
+ * code et ne pouvait donc émettre aucun événement. Sans cette borne, il faut
+ * remonter à l'aveugle une profondeur arbitraire, et payer chaque tranche
+ * inutile d'autant de requêtes qu'il y a de signatures d'événements.
+ */
+export const DEPLOY_BLOCK = BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK ?? "0");
