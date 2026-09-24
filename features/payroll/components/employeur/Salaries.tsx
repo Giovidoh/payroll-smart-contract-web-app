@@ -13,6 +13,7 @@ import {
   Vide,
   Squelette,
   LienAdresse,
+  Requis,
 } from "../ui-kit";
 import { useSalaries } from "../../hooks/use-payroll";
 import { useFiches, useDirectoryStore, nomAffiche } from "../../store/directory-store";
@@ -241,10 +242,17 @@ function PanneauAjout({
         l&apos;adresse électronique restent dans ce navigateur : les porter en chaîne
         rendrait publique la rémunération de personnes nommées.
       </p>
+      <p className="mb-4 text-[11px] text-ink-3">
+        Les champs suivis d&apos;un <span className="text-err">*</span> sont
+        obligatoires ; les autres sont facultatifs.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="grid gap-1 sm:col-span-2">
-          <span className="text-ink-2">Adresse du portefeuille</span>
+          <span className="text-ink-2">
+            Adresse du portefeuille
+            <Requis />
+          </span>
           <input
             value={adresse}
             onChange={(e) => setAdresse(e.target.value)}
@@ -260,7 +268,10 @@ function PanneauAjout({
         </label>
 
         <label className="grid gap-1">
-          <span className="text-ink-2">Salaire par cycle ({TOKEN_SYMBOL})</span>
+          <span className="text-ink-2">
+            Salaire par cycle ({TOKEN_SYMBOL})
+            <Requis />
+          </span>
           <input
             value={salaire}
             onChange={(e) => setSalaire(e.target.value)}
@@ -376,7 +387,10 @@ function PanneauSalaire({
       </div>
 
       <label className="grid gap-1">
-        <span className="text-ink-2">Nouveau salaire ({TOKEN_SYMBOL})</span>
+        <span className="text-ink-2">
+          Nouveau salaire ({TOKEN_SYMBOL})
+          <Requis />
+        </span>
         <input
           value={saisie}
           onChange={(e) => setSaisie(e.target.value)}
@@ -455,6 +469,7 @@ function PanneauRetrait({
       <label className="grid gap-1">
         <span className="text-ink-2">
           Saisissez <span className="font-mono">RETIRER</span> pour confirmer
+          <Requis />
         </span>
         <input
           value={confirmation}

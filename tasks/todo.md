@@ -38,7 +38,7 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-- [~] Recette de bout en bout, écran par écran, sur le contrat de démonstration
+- [~] Recette de bout en bout — reste B5 et les écrans D3/D4
 
 ## Done — vu à l'écran, avec des données de la chaîne
 
@@ -62,15 +62,17 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [x] C3 mes bulletins
 - [x] C4 mon profil — identité hors chaîne, note de confidentialité
 - [x] D1/D2 — confirmation puis attente de signature
+- [x] A2 mauvais réseau — « Basculer sur Sepolia », relevé depuis un autre réseau
+- [x] A3 adresse non reconnue — quatrième compte, ni propriétaire ni salarié
+- [x] B4 modifier un salaire — opération exécutée sur la chaîne
+- [x] C5 déclencher la paie depuis un compte salarié — passe avec des frais
+      provisionnés, échoue sans. Le caractère permissionless est vérifié dans
+      les deux sens : le contrat n'oppose rien, le réseau oppose ses frais.
 
 ## To Do
 
 ### Écrans jamais rendus
-- [ ] A2 mauvais réseau — basculer MetaMask sur un autre réseau pour le déclencher
-- [ ] A3 adresse inconnue — connecter une adresse ni propriétaire ni salariée
-- [ ] B4 modifier un salaire — écran atteint, opération jamais exécutée
-- [ ] B5 retirer un salarié — idem
-- [ ] C5 déclencher la paie depuis le compte salarié — **bloqué**, voir plus bas
+- [ ] B5 retirer un salarié — écran atteint, opération jamais exécutée
 - [ ] D3/D4 — succès et échec d'une transaction
 
 ### Reste à faire
@@ -79,9 +81,17 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [ ] Tests
 - [ ] Surfacer les erreurs restantes : `useSwitchChain`, `useDisconnect`
 
-## Blocked
-
-- [!] C5 « Déclencher la paie » depuis le compte salarié — le compte
-      `0x2c6DD1bBB1ff2F52DcBd35bA0fE84A83bB1B59Fd` n'a **aucun SepoliaETH** et ne peut
-      pas payer les frais de réseau. Robinet Sepolia, ou envoi depuis le compte
-      propriétaire. C'est l'écran qui porte l'argument du caractère permissionless.
+### Dette relevée, à reprendre après la recette
+- [ ] **Rangement des composants.** L'intention de départ : `/components` à la
+      racine pour l'interface réutilisable, `/features` pour ce qui appartient à
+      une fonctionnalité. Aujourd'hui `features/payroll/components/ui-kit.tsx`
+      concentre des briques génériques (`Panneau`, `Kpi`, `Tableau`, `Squelette`,
+      `Requis`) qui n'ont rien de spécifique à la paie.
+- [ ] **Nommage en anglais.** Fichiers et identifiants sont en français
+      (`useRole`, `enCours`, `Salaries.tsx`, `CHEMINS`) alors que la convention
+      du projet — et celle du contrat — est l'anglais. Seuls les libellés
+      affichés doivent rester en français.
+- [ ] **Couche Web2 absente.** Les informations hors chaîne (nom, poste, date
+      d'embauche, adresse électronique) vivent dans le navigateur. Ni API ni base
+      de données, donc pas d'édition de bulletins de paie côté serveur.
+      À arbitrer : est-ce dans le périmètre du mémoire, ou une limite assumée ?

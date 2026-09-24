@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useAccount } from "wagmi";
 import { formatToken, parseToken } from "@/lib/format";
 import { TOKEN_SYMBOL, PAYROLL_ADDRESS } from "@/lib/contracts/config";
-import { Panneau, Squelette } from "../ui-kit";
+import { Panneau, Requis, Squelette } from "../ui-kit";
 import {
   useTresorerie,
   useSoldeJeton,
@@ -124,7 +124,10 @@ function PanneauDepot({
       </p>
 
       <label className="grid gap-1">
-        <span className="text-ink-2">Montant à déposer ({TOKEN_SYMBOL})</span>
+        <span className="text-ink-2">
+          Montant à déposer ({TOKEN_SYMBOL})
+          <Requis />
+        </span>
         <input
           value={saisie}
           onChange={(e) => setSaisie(e.target.value)}
@@ -219,6 +222,7 @@ function PanneauRetrait({
       <label className="grid gap-1">
         <span className="text-ink-2">
           Montant à retirer ({TOKEN_SYMBOL}) — plafonné au surplus
+          <Requis />
         </span>
         <input
           value={saisie}

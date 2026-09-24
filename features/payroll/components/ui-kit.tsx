@@ -237,3 +237,23 @@ export function Td({
     </td>
   );
 }
+
+/**
+ * Astérisque des champs obligatoires. Un champ marqué conditionne l'opération :
+ * sans lui le bouton reste inactif, ou le contrat opposerait un refus. Les
+ * champs non marqués — nom, poste, adresse électronique — sont les seules
+ * informations hors chaîne, et elles sont facultatives par construction.
+ *
+ * L'astérisque est décorative ; la mention lisible par les lecteurs d'écran est
+ * portée par le texte masqué qui l'accompagne.
+ */
+export function Requis() {
+  return (
+    <>
+      <span aria-hidden="true" className="text-err">
+        {" *"}
+      </span>
+      <span className="sr-only"> (obligatoire)</span>
+    </>
+  );
+}

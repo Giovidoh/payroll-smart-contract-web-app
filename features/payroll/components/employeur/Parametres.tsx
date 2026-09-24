@@ -12,7 +12,7 @@ import {
   CHAIN,
 } from "@/lib/contracts/config";
 import { formatInterval, formatDateTime, shortAddress } from "@/lib/format";
-import { Panneau, LienAdresse, Bandeau } from "../ui-kit";
+import { Panneau, LienAdresse, Bandeau, Requis } from "../ui-kit";
 import { useParametres, useOwner } from "../../hooks/use-payroll";
 import type { Operation } from "../../hooks/use-transaction";
 
@@ -92,7 +92,10 @@ export default function Parametres({
         </p>
 
         <label className="grid gap-1">
-          <span className="text-ink-2">Adresse du nouveau propriétaire</span>
+          <span className="text-ink-2">
+            Adresse du nouveau propriétaire
+            <Requis />
+          </span>
           <input
             value={nouveau}
             onChange={(e) => setNouveau(e.target.value)}
