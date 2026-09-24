@@ -7,25 +7,29 @@ import type { Role } from "./hooks/use-payroll";
  * rechargement ramenait sur la vue d'ensemble. Chaque écran a donc désormais
  * son chemin, et l'état est déduit de l'adresse plutôt que l'inverse.
  *
- * Les deux vues d'ensemble partagent le même chemin : une adresse n'ouvre
- * jamais qu'un seul des deux espaces, celui que le contrat lui reconnaît, et
- * le rôle suffit à lever l'ambiguïté.
+ * Les chemins sont en anglais, comme le reste du code et comme le contrat
+ * lui-même ; seuls les libellés affichés sont en français.
+ *
+ * Deux paires de chemins sont partagées entre les rôles — l'accueil, et le
+ * déclenchement de la paie, que le contrat ouvre aux deux. Ce n'est pas une
+ * ambiguïté : une adresse n'ouvre jamais qu'un seul des deux espaces, celui
+ * que le contrat lui reconnaît.
  */
 export const CHEMINS: Record<Ecran, string> = {
-  B1: "/vue-d-ensemble",
-  B2: "/salaries",
-  B3: "/salaries/ajouter",
-  B4: "/salaries/modifier",
-  B5: "/salaries/retirer",
-  B6: "/tresorerie",
-  B7: "/execution-de-la-paie",
-  B8: "/historique",
-  B9: "/parametres",
-  C1: "/vue-d-ensemble",
-  C2: "/mes-versements",
-  C3: "/mes-bulletins",
-  C4: "/mon-profil",
-  C5: "/declencher-la-paie",
+  B1: "/overview",
+  B2: "/employees",
+  B3: "/employees/add",
+  B4: "/employees/edit-salary",
+  B5: "/employees/remove",
+  B6: "/treasury",
+  B7: "/run-payroll",
+  B8: "/history",
+  B9: "/settings",
+  C1: "/overview",
+  C2: "/my-payments",
+  C3: "/my-payslips",
+  C4: "/my-profile",
+  C5: "/run-payroll",
 };
 
 /**
