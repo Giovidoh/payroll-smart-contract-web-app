@@ -1,0 +1,149 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+
+  /* Jetons propres au système Modernist, repris de la maquette. */
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-rule: var(--rule);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-tint: var(--tint);
+  --color-ok: var(--ok);
+  --color-ok-bg: var(--ok-bg);
+  --color-warn: var(--warn);
+  --color-warn-bg: var(--warn-bg);
+  --color-err: var(--err);
+  --color-err-bg: var(--err-bg);
+
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+}
+
+/*
+ * Palette du système de design « Modernist », transposée depuis la maquette
+ * Paie Blockchain. Les noms shadcn sont conservés pour que les composants
+ * fournis par le boilerplate continuent de fonctionner sans retouche.
+ */
+:root {
+  --radius: 5px;
+
+  --background: #f5f6f6;
+  --foreground: #191c1b;
+  --card: #ffffff;
+  --card-foreground: #191c1b;
+  --popover: #ffffff;
+  --popover-foreground: #191c1b;
+
+  --primary: #0d4f3c;
+  --primary-foreground: #ffffff;
+  --secondary: #eef0f0;
+  --secondary-foreground: #191c1b;
+  --muted: #eef0f0;
+  --muted-foreground: #545957;
+  --accent: #e4ede9;
+  --accent-foreground: #0d4f3c;
+  --destructive: #a32015;
+
+  --border: #dcdfde;
+  --input: #c2c7c5;
+  --ring: #0d4f3c;
+
+  --surface-2: #eef0f0;
+  --surface-3: #e5e8e7;
+  --line: #dcdfde;
+  --line-2: #c2c7c5;
+  --rule: #1c1f1e;
+  --ink-2: #545957;
+  --ink-3: #7d8483;
+  --tint: #e4ede9;
+
+  --ok: #166534;
+  --ok-bg: #e6f0e9;
+  --warn: #8a5a00;
+  --warn-bg: #f6eddc;
+  --err: #a32015;
+  --err-bg: #f7e6e4;
+}
+
+.dark {
+  --background: #161918;
+  --foreground: #e8ebea;
+  --card: #1d2120;
+  --card-foreground: #e8ebea;
+  --popover: #1d2120;
+  --popover-foreground: #e8ebea;
+
+  --primary: #2e7d63;
+  --primary-foreground: #ffffff;
+  --secondary: #252a28;
+  --secondary-foreground: #e8ebea;
+  --muted: #252a28;
+  --muted-foreground: #a4acaa;
+  --accent: #1c2b25;
+  --accent-foreground: #3a8f73;
+  --destructive: #e58a80;
+
+  --border: #343a38;
+  --input: #474e4b;
+  --ring: #2e7d63;
+
+  --surface-2: #252a28;
+  --surface-3: #2d3331;
+  --line: #343a38;
+  --line-2: #474e4b;
+  --rule: #e6e9e8;
+  --ink-2: #a4acaa;
+  --ink-3: #7e8785;
+  --tint: #1c2b25;
+
+  --ok: #5fbe86;
+  --ok-bg: #1a2b22;
+  --warn: #d9a94a;
+  --warn-bg: #2c2517;
+  --err: #e58a80;
+  --err-bg: #2e1d1b;
+}
+
+::selection {
+  background: var(--tint);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 13px;
+    line-height: 1.45;
+  }
+}
