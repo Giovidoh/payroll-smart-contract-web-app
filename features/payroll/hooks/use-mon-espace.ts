@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { erc20Abi } from "viem";
 import { payrollAbi } from "@/lib/contracts/payroll-abi";
-import { PAYROLL_ADDRESS, TOKEN_ADDRESS } from "@/lib/contracts/config";
+import { CHAIN, PAYROLL_ADDRESS, TOKEN_ADDRESS } from "@/lib/contracts/config";
 import { useSalarie, useParametres } from "./use-payroll";
 import { useEvenements } from "./use-events";
 
@@ -33,6 +33,7 @@ export function useMonEspace() {
   const { data: soldeContrat } = useReadContract({
     abi: erc20Abi,
     address: TOKEN_ADDRESS,
+    chainId: CHAIN.id,
     functionName: "balanceOf",
     args: [PAYROLL_ADDRESS],
     query: { refetchInterval: 12_000 },
@@ -46,6 +47,7 @@ export function useMonEspace() {
   const { data: surplus, isError: reserveEntamee } = useReadContract({
     abi: payrollAbi,
     address: PAYROLL_ADDRESS,
+    chainId: CHAIN.id,
     functionName: "getAvailableAmountForWithdrawal",
     query: { retry: false, refetchInterval: 12_000 },
   });

@@ -12,9 +12,21 @@ const bouton =
 const principal = `${bouton} border-primary bg-primary font-medium text-primary-foreground hover:bg-primary/90`;
 const secondaire = `${bouton} border-line-2 bg-card hover:bg-surface-2`;
 
+/** Les erreurs de viem tiennent sur plusieurs lignes ; la première suffit ici. */
+const premiereLigne = (m: string) => m.split("\n")[0];
+
 export default function ConnexionEcran() {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending } = useConnect();
+  const { connect, connectors, isPending, error: erreurConnexion, variables } = useConnect();
+
+  /*
+   * Avec plusieurs portefeuilles installés, la découverte EIP-6963 les annonce
+   * chacun par son nom. Le connecteur générique « injected » fait alors double
+   * emploi et, les extensions se disputant `window.ethereum`, c'est souvent lui
+   * qui échoue. On ne le propose que s'il est seul.
+   */
+  const nommes = connectors.filter((c) => c.id !== "injected");
+  const proposes = nommes.length > 0 ? nommes : connectors;
   const { disconnect } = useDisconnect();
   const { switchChain, isPending: bascule } = useSwitchChain();
   const { role, enCours } = useRole();
@@ -81,20 +93,26 @@ export default function ConnexionEcran() {
               décide de ce que vous pouvez faire.
             </p>
 
-            {connectors.length === 0 ? (
+            {erreurConnexion && (
+              <p className="mb-3 rounded-sm border border-err/35 bg-err-bg px-3 py-2.5 text-err">
+                La connexion a échoué : {premiereLigne(erreurConnexion.message)}
+              </p>
+            )}
+
+            {proposes.length === 0 ? (
               <p className="rounded-sm border border-warn/35 bg-warn-bg px-3 py-2.5 text-warn">
                 Aucun portefeuille détecté dans ce navigateur. Installez MetaMask,
                 puis rechargez la page.
               </p>
             ) : (
-              connectors.map((c) => (
+              proposes.map((c) => (
                 <button
                   key={c.uid}
                   className={`${principal} mb-2`}
                   disabled={isPending}
                   onClick={() => connect({ connector: c })}
                 >
-                  {isPending
+                  {isPending && variables?.connector === c
                     ? "Connexion…"
                     : /* « Injected » est le nom interne du connecteur quand aucun
                          portefeuille ne s'est annoncé : n'imposons pas ce jargon. */

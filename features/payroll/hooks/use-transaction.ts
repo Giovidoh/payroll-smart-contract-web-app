@@ -5,7 +5,7 @@ import { useAccount, useConfig, usePublicClient } from "wagmi";
 import { writeContract, waitForTransactionReceipt } from "wagmi/actions";
 import { erc20Abi, type Abi, type Address, type Hash } from "viem";
 import { payrollAbi } from "@/lib/contracts/payroll-abi";
-import { PAYROLL_ADDRESS, TOKEN_ADDRESS } from "@/lib/contracts/config";
+import { CHAIN, PAYROLL_ADDRESS, TOKEN_ADDRESS } from "@/lib/contracts/config";
 import { decodeContractError } from "@/lib/contracts/errors";
 
 /**
@@ -68,7 +68,7 @@ function resoudre(appel: AppelContrat): {
 
 export function useTransaction() {
   const config = useConfig();
-  const client = usePublicClient();
+  const client = usePublicClient({ chainId: CHAIN.id });
   const { address } = useAccount();
   const [operation, setOperation] = useState<Operation | null>(null);
   const [etat, setEtat] = useState<EtatTx>({ phase: "repos" });

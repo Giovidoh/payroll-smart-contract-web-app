@@ -51,12 +51,12 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
         />
         <Kpi
           label="Versements reçus"
-          valeur={versements.length}
-          indice="depuis mon inscription"
+          valeur={enCours ? "…" : versements.length}
+          indice={enCours ? "lecture des journaux…" : "depuis mon inscription"}
         />
         <Kpi
           label="Total perçu"
-          valeur={formatToken(totalPercu, false)}
+          valeur={enCours ? "…" : formatToken(totalPercu, false)}
           indice="cumul des versements"
         />
       </div>
