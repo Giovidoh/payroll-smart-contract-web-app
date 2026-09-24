@@ -16,6 +16,7 @@ import {
   Th,
   Td,
   Vide,
+  Echec,
   Squelette,
   LienAdresse,
   LienTransaction,
@@ -28,7 +29,7 @@ import type { Ecran } from "../AppShell";
 /* ------------------------------------------------------------------ C1 */
 
 export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
-  const { salaire, versements, totalPercu, enCours } = useMonEspace();
+  const { salaire, versements, totalPercu, enCours, echecJournaux } = useMonEspace();
   const { restant, echue, prochaine } = useEcheance();
 
   const recents = versements.slice(0, 5);
@@ -51,13 +52,19 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
         />
         <Kpi
           label="Versements reçus"
-          valeur={enCours ? "…" : versements.length}
-          indice={enCours ? "lecture des journaux…" : "depuis mon inscription"}
+          valeur={enCours ? "…" : echecJournaux ? "?" : versements.length}
+          indice={
+            enCours
+              ? "lecture des journaux…"
+              : echecJournaux
+                ? "journaux illisibles"
+                : "depuis mon inscription"
+          }
         />
         <Kpi
           label="Total perçu"
-          valeur={enCours ? "…" : formatToken(totalPercu, false)}
-          indice="cumul des versements"
+          valeur={enCours ? "…" : echecJournaux ? "?" : formatToken(totalPercu, false)}
+          indice={echecJournaux ? "journaux illisibles" : "cumul des versements"}
         />
       </div>
 
@@ -103,6 +110,8 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
         >
           {enCours ? (
             <Squelette lignes={4} />
+          ) : echecJournaux ? (
+            <Echec />
           ) : recents.length === 0 ? (
             <Vide titre="Aucun versement">
               Votre première paie apparaîtra ici dès qu&apos;elle sera exécutée.
@@ -130,12 +139,14 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
 /* ------------------------------------------------------------------ C2 */
 
 export function MesVersements() {
-  const { versements, totalPercu, enCours } = useMonEspace();
+  const { versements, totalPercu, enCours, echecJournaux } = useMonEspace();
 
   return (
     <Panneau titre={`Mes versements (${versements.length})`}>
       {enCours ? (
         <Squelette lignes={6} />
+      ) : echecJournaux ? (
+        <Echec />
       ) : versements.length === 0 ? (
         <Vide titre="Aucun versement pour l'instant">
           Votre première paie apparaîtra ici dès qu&apos;elle sera exécutée. Le compte à

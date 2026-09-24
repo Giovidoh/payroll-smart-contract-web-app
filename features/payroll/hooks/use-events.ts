@@ -62,10 +62,36 @@ const SIGNATURES = [
 ] as const;
 
 /**
- * Les points d'accès publics limitent l'étendue d'un `eth_getLogs`. On découpe
- * donc l'intervalle à lire en tranches de cette taille.
+ * Les points d'accès limitent l'étendue d'un `eth_getLogs`. Le plafond n'est pas
+ * le même partout — mille blocs chez thirdweb, dix mille ou davantage chez un
+ * fournisseur nominatif — et le dépassement se solde par un refus, non par une
+ * réponse tronquée. On s'aligne donc sur le plus bas par défaut, quitte à le
+ * relever par configuration quand le point d'accès le permet.
  */
-const TRANCHE = 45_000n;
+const TRANCHE = BigInt(process.env.NEXT_PUBLIC_LOG_RANGE ?? "1000");
+
+/**
+ * Cent trente tranches lancées de front feraient refuser l'ensemble pour excès
+ * de débit. On les fait passer par un nombre borné de fronts simultanés.
+ */
+const FRONTS = 8;
+
+async function enParallele<T, R>(
+  elements: readonly T[],
+  fronts: number,
+  traiter: (e: T) => Promise<R>
+): Promise<R[]> {
+  const resultats: R[] = new Array(elements.length);
+  let suivant = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(fronts, elements.length) }, async () => {
+      for (let i = suivant++; i < elements.length; i = suivant++) {
+        resultats[i] = await traiter(elements[i]);
+      }
+    })
+  );
+  return resultats;
+}
 
 /**
  * Faute de bloc de création configuré, on remonte une profondeur arbitraire.
@@ -74,11 +100,11 @@ const TRANCHE = 45_000n;
 const PROFONDEUR = 450_000n;
 
 /**
- * Le balayage initial coûte sept `eth_getLogs` par tranche. Le refaire toutes
- * les vingt secondes saturerait n'importe quel point d'accès public. On ne le
- * fait donc qu'une fois par session : ensuite, seuls les blocs parus depuis la
- * dernière lecture sont interrogés, ce qui ramène le régime de croisière à une
- * tranche.
+ * Le balayage initial coûte une requête par tranche, et il y a d'autant plus de
+ * tranches que le contrat est ancien. Le refaire toutes les vingt secondes
+ * saturerait n'importe quel point d'accès. On ne le fait donc qu'une fois par
+ * session : ensuite, seuls les blocs parus depuis la dernière lecture sont
+ * interrogés, ce qui ramène le régime de croisière à une tranche.
  */
 const CACHE = new Map<Address, { jusqua: bigint; evenements: Evenement[] }>();
 
@@ -104,11 +130,10 @@ export function useEvenements() {
       const plancher = acquis ? acquis.jusqua + 1n : origine;
 
       /*
-       * Les tranches étaient interrogées l'une après l'autre : chaque aller-retour
-       * réseau attendait le précédent, et le premier chargement durait autant de
-       * fois la latence qu'il y avait de tranches. Comme elles sont indépendantes,
-       * on les lance de front — le nombre de requêtes est inchangé, seul le temps
-       * d'attente l'est.
+       * Les tranches sont indépendantes : on les lance par fronts plutôt que
+       * l'une après l'autre. Et une seule requête suffit par tranche — viem
+       * pose un filtre portant les sept signatures à la fois, là où l'ancienne
+       * version en faisait une par signature.
        */
       const fenetres: Array<{ debut: bigint; fin: bigint }> = [];
       for (let fin = tete; fin >= plancher; ) {
@@ -120,19 +145,20 @@ export function useEvenements() {
 
       const bruts: Evenement[] = [];
 
-      const lots = await Promise.all(
-        fenetres.flatMap(({ debut, fin }) =>
-          SIGNATURES.map((event) =>
-            client
-              .getLogs({
-                address: PAYROLL_ADDRESS,
-                event,
-                fromBlock: debut,
-                toBlock: fin,
-              })
-              .catch(() => [])
-          )
-        )
+      /*
+       * L'échec n'est plus avalé. Une tranche refusée — plafond dépassé, débit
+       * excessif, point d'accès indisponible — faisait auparavant renvoyer une
+       * liste vide, et l'écran annonçait « aucun événement » là où il fallait
+       * lire « je n'ai pas pu lire ». S'agissant de la seule trace probatoire
+       * des versements, une absence feinte est pire qu'une erreur affichée.
+       */
+      const lots = await enParallele(fenetres, FRONTS, ({ debut, fin }) =>
+        client.getLogs({
+          address: PAYROLL_ADDRESS,
+          events: SIGNATURES,
+          fromBlock: debut,
+          toBlock: fin,
+        })
       );
 
       for (const lot of lots) {

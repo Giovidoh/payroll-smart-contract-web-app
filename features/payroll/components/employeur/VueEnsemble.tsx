@@ -17,6 +17,7 @@ import {
   Th,
   Td,
   Vide,
+  Echec,
   Squelette,
   LienTransaction,
 } from "../ui-kit";
@@ -44,7 +45,7 @@ export default function VueEnsemble({
   const { solde, surplus, reserve, masse } = useTresorerie({ estProprietaire: true });
   const { restant, echue, prochaine, dernierePaie, intervalle, cyclesReserves } =
     useEcheance();
-  const { data: evenements, isLoading } = useEvenements();
+  const { data: evenements, isLoading, isError } = useEvenements();
   const fiches = useFiches();
 
   const effectif = salaries?.length ?? 0;
@@ -180,6 +181,8 @@ export default function VueEnsemble({
       >
         {isLoading ? (
           <Squelette />
+        ) : isError ? (
+          <Echec />
         ) : recents.length === 0 ? (
           <Vide titre="Aucun événement">
             Le contrat n&apos;a encore rien enregistré, ou les journaux consultés ne

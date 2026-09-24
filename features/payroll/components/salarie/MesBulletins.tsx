@@ -8,6 +8,7 @@ import {
   Th,
   Td,
   Vide,
+  Echec,
   Squelette,
   LienTransaction,
 } from "../ui-kit";
@@ -16,7 +17,7 @@ import { useFiches } from "../../store/directory-store";
 import { engendrerBulletin, nomFichierBulletin } from "../../lib/bulletin";
 
 export default function MesBulletins() {
-  const { versements, adresse, enCours } = useMonEspace();
+  const { versements, adresse, enCours, echecJournaux } = useMonEspace();
   const fiches = useFiches();
   const fiche = adresse ? fiches[adresse.toLowerCase()] : undefined;
 
@@ -39,6 +40,12 @@ export default function MesBulletins() {
 
       {enCours ? (
         <Squelette lignes={5} />
+      ) : echecJournaux ? (
+        <Echec>
+          Les journaux n&apos;ont pas pu être lus. Aucun bulletin ne peut être
+          produit tant que les versements qu&apos;ils attestent restent
+          inaccessibles.
+        </Echec>
       ) : versements.length === 0 ? (
         <Vide titre="Aucun bulletin disponible">
           Un bulletin est produit après chaque paie exécutée. Le premier sera

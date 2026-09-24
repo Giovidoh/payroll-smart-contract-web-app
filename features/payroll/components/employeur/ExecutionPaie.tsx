@@ -12,6 +12,7 @@ import {
   Th,
   Td,
   Vide,
+  Echec,
   Squelette,
   LienAdresse,
   LienTransaction,
@@ -30,7 +31,7 @@ export default function ExecutionPaie({
   const { data: salaries, isLoading } = useSalaries();
   const { solde, masse } = useTresorerie({ estProprietaire: true });
   const { restant, echue, prochaine } = useEcheance();
-  const { data: evenements } = useEvenements();
+  const { data: evenements, isError: echecJournaux } = useEvenements();
   const fiches = useFiches();
 
   const effectif = salaries?.length ?? 0;
@@ -145,7 +146,9 @@ export default function ExecutionPaie({
       </Panneau>
 
       <Panneau titre="Trois dernières exécutions">
-        {cycles.length === 0 ? (
+        {echecJournaux ? (
+          <Echec />
+        ) : cycles.length === 0 ? (
           <Vide titre="Aucune exécution observée">
             Aucun cycle de paie n&apos;apparaît dans les journaux consultés.
           </Vide>

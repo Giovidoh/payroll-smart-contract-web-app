@@ -27,7 +27,7 @@ import { useEvenements } from "./use-events";
 export function useMonEspace() {
   const { address } = useAccount();
   const { data: fiche } = useSalarie(address);
-  const { data: evenements, isLoading } = useEvenements();
+  const { data: evenements, isLoading, isError: echecJournaux } = useEvenements();
   const { cyclesReserves } = useParametres();
 
   const { data: soldeContrat } = useReadContract({
@@ -92,5 +92,7 @@ export function useMonEspace() {
           : undefined,
     versements,
     totalPercu,
+    /** Vrai si les journaux n'ont pas pu être lus : la liste vide ne vaut rien. */
+    echecJournaux,
   };
 }

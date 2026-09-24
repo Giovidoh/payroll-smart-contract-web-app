@@ -8,6 +8,7 @@ import {
   Th,
   Td,
   Vide,
+  Echec,
   Squelette,
   Etiquette,
   LienTransaction,
@@ -35,7 +36,7 @@ const FAMILLES: Record<string, TypeEvenement[]> = {
 };
 
 export default function Historique() {
-  const { data: evenements, isLoading } = useEvenements();
+  const { data: evenements, isLoading, isError } = useEvenements();
   const fiches = useFiches();
   const [famille, setFamille] = useState<keyof typeof FAMILLES>("tout");
 
@@ -69,6 +70,8 @@ export default function Historique() {
 
       {isLoading ? (
         <Squelette lignes={8} />
+      ) : isError ? (
+        <Echec />
       ) : lignes.length === 0 ? (
         <Vide titre="Aucun événement">
           Rien à afficher pour ce filtre sur la profondeur de journaux consultée.
