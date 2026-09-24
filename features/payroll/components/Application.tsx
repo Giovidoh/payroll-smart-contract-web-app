@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import { CHAIN } from "@/lib/contracts/config";
@@ -11,6 +12,7 @@ import { Squelette } from "./ui-kit";
 import { useRole } from "../hooks/use-payroll";
 import { useMonte } from "../hooks/use-monte";
 import { useTransaction } from "../hooks/use-transaction";
+import { CHEMINS, ecranDepuisChemin } from "../routes";
 
 import VueEnsemble from "./employeur/VueEnsemble";
 import Salaries from "./employeur/Salaries";
@@ -24,44 +26,61 @@ import MesBulletins from "./salarie/MesBulletins";
 import DeclencherPaie from "./salarie/DeclencherPaie";
 
 export default function Application() {
-  const { isConnected, chainId } = useAccount();
+  const { isConnected, chainId, status } = useAccount();
   const { role, enCours } = useRole();
   const monte = useMonte();
-  const [choisi, setChoisi] = useState<Ecran | null>(null);
+  const router = useRouter();
+  const chemin = usePathname();
 
   const tx = useTransaction();
 
+  /*
+   * La racine n'est l'adresse d'aucun écran : dès que le rôle est connu, on la
+   * remplace par le chemin canonique de l'accueil — sans empiler d'entrée dans
+   * l'historique, pour que « précédent » ne ramène pas sur une adresse morte.
+   */
+  useEffect(() => {
+    if (role && role !== "inconnu" && chemin === "/") {
+      router.replace(CHEMINS[role === "employeur" ? "B1" : "C1"]);
+    }
+  }, [role, chemin, router]);
+
   if (!monte) return null;
 
-  if (!isConnected || chainId !== CHAIN.id || role === "inconnu" || !role) {
-    if (enCours) {
-      return (
-        <main className="mx-auto grid max-w-md gap-3 p-10">
-          <Squelette lignes={4} />
-        </main>
-      );
-    }
+  /*
+   * Au rechargement, wagmi rétablit la connexion au portefeuille de façon
+   * asynchrone : pendant cet intervalle, `isConnected` est faux alors que le
+   * compte est bel et bien autorisé. Afficher l'écran de connexion à ce
+   * moment-là revient à demander de se connecter à quelqu'un qui l'est déjà —
+   * c'est le clignotement observé entre le rechargement et le tableau de bord.
+   */
+  if (status === "reconnecting" || status === "connecting") return <Attente />;
+
+  /*
+   * L'écran de connexion passe avant toute attente : tant que le portefeuille
+   * n'est pas connecté au bon réseau, il n'y a rien à attendre de la chaîne, et
+   * afficher un squelette reviendrait à faire patienter indéfiniment quelqu'un
+   * qui doit d'abord agir — se connecter, ou basculer de réseau.
+   */
+  if (!isConnected || chainId !== CHAIN.id) return <ConnexionEcran />;
+
+  if (!role) {
+    if (enCours) return <Attente />;
     return <ConnexionEcran />;
   }
 
-  const demander = tx.demander;
+  if (role === "inconnu") return <ConnexionEcran />;
 
-  /*
-   * L'écran courant se déduit du rôle plutôt que d'être poussé par un effet :
-   * tant que l'utilisateur n'a rien choisi, ou s'il a choisi un écran qui
-   * n'appartient pas à son rôle — cas d'un changement de compte dans le
-   * portefeuille —, on retombe sur la vue d'ensemble correspondante.
-   */
-  const prefixe = role === "employeur" ? "B" : "C";
-  const ecran: Ecran =
-    choisi && choisi.startsWith(prefixe) ? choisi : role === "employeur" ? "B1" : "C1";
+  const demander = tx.demander;
+  const naviguer = (e: Ecran) => router.push(CHEMINS[e]);
+  const ecran = ecranDepuisChemin(chemin, role);
 
   return (
     <>
-      <AppShell role={role} ecran={ecran} onNaviguer={setChoisi}>
+      <AppShell role={role} ecran={ecran} onNaviguer={naviguer}>
         {role === "employeur" ? (
           <>
-            {ecran === "B1" && <VueEnsemble onNaviguer={setChoisi} />}
+            {ecran === "B1" && <VueEnsemble onNaviguer={naviguer} />}
             {(ecran === "B2" || ecran === "B3" || ecran === "B4" || ecran === "B5") && (
               <Salaries onDemander={demander} />
             )}
@@ -72,7 +91,7 @@ export default function Application() {
           </>
         ) : (
           <>
-            {ecran === "C1" && <VueSalarie onNaviguer={setChoisi} />}
+            {ecran === "C1" && <VueSalarie onNaviguer={naviguer} />}
             {ecran === "C2" && <MesVersements />}
             {ecran === "C3" && <MesBulletins />}
             {ecran === "C4" && <MonProfil />}
@@ -92,5 +111,14 @@ export default function Application() {
         }}
       />
     </>
+  );
+}
+
+function Attente() {
+  return (
+    <main className="mx-auto grid max-w-md gap-3 p-10">
+      <Squelette lignes={4} />
+      <p className="text-ink-2">Lecture du rôle sur la chaîne…</p>
+    </main>
   );
 }
