@@ -1,9 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { usePublicClient } from "wagmi";
-import { parseAbiItem, type Address, type Hash } from "viem";
-import { CHAIN, DEPLOY_BLOCK, PAYROLL_ADDRESS } from "@/lib/contracts/config";
+import { createPublicClient, http, parseAbiItem, type Address, type Hash } from "viem";
+import {
+  CHAIN,
+  DEPLOY_BLOCK,
+  LOGS_RPC_URL,
+  PAYROLL_ADDRESS,
+} from "@/lib/contracts/config";
 
 /**
  * Le contrat ne conserve aucun historique : il n'y a ni tableau des versements
@@ -108,17 +112,23 @@ const PROFONDEUR = 450_000n;
  */
 const CACHE = new Map<Address, { jusqua: bigint; evenements: Evenement[] }>();
 
-export function useEvenements() {
-  const client = usePublicClient({ chainId: CHAIN.id });
+/*
+ * Les journaux ne passent pas par le client de wagmi : ils ont leur propre point
+ * d'accès, choisi pour l'étendue qu'il accepte. Le client est construit une fois
+ * pour toutes, hors du rendu.
+ */
+const clientJournaux = createPublicClient({
+  chain: CHAIN,
+  transport: http(LOGS_RPC_URL),
+});
 
+export function useEvenements() {
   return useQuery({
     queryKey: ["evenements", PAYROLL_ADDRESS],
-    enabled: Boolean(client),
     refetchInterval: 20_000,
     refetchOnWindowFocus: false,
     queryFn: async (): Promise<Evenement[]> => {
-      if (!client) return [];
-
+      const client = clientJournaux;
       const tete = await client.getBlockNumber();
       const acquis = CACHE.get(PAYROLL_ADDRESS);
       const origine =

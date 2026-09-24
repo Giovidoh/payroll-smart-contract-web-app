@@ -45,3 +45,19 @@ export const explorerTx = (h: string) => `${EXPLORER_BASE}/tx/${h}`;
  * inutile d'autant de requêtes qu'il y a de signatures d'événements.
  */
 export const DEPLOY_BLOCK = BigInt(process.env.NEXT_PUBLIC_DEPLOY_BLOCK ?? "0");
+
+/**
+ * Point d'accès dédié à la lecture des journaux.
+ *
+ * Les limites d'un fournisseur ne sont pas les mêmes selon l'appel. Mesuré le
+ * 24/09/2026 sur ce contrat : le palier gratuit d'Alchemy plafonne `eth_getLogs`
+ * à dix blocs — treize mille requêtes pour la vie du contrat — là où ses limites
+ * d'appel ordinaires sont confortables. La passerelle publique de Tenderly, elle,
+ * rend l'historique entier en une requête.
+ *
+ * On sépare donc les deux usages plutôt que de dégrader l'un pour servir l'autre.
+ * À écarter : le point d'accès publicnode, qui répond sans erreur mais ne rend
+ * que les journaux récents — une troncature silencieuse, pire qu'un refus.
+ */
+export const LOGS_RPC_URL =
+  process.env.NEXT_PUBLIC_LOGS_RPC_URL || "https://sepolia.gateway.tenderly.co";
