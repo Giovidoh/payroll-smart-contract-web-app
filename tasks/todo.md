@@ -38,9 +38,11 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-- [x] Recette de bout en bout — les 27 écrans relevés
+_Rien en cours._
 
 ## Done — vu à l'écran, avec des données de la chaîne
+
+- [x] Recette de bout en bout : tous les écrans du cahier de recette relevés
 
 - [x] Socle : boilerplate `Giovidoh/nextjs-boilerplate`, authentification retirée
       (notre authentification est le portefeuille)
