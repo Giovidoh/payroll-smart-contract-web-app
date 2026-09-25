@@ -38,7 +38,7 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-- [~] Recette de bout en bout — reste B5 et les écrans D3/D4
+- [~] Recette de bout en bout — restent les écrans D3/D4
 
 ## Done — vu à l'écran, avec des données de la chaîne
 
@@ -65,6 +65,9 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [x] A2 mauvais réseau — « Basculer sur Sepolia », relevé depuis un autre réseau
 - [x] A3 adresse non reconnue — quatrième compte, ni propriétaire ni salarié
 - [x] B4 modifier un salaire — opération exécutée sur la chaîne
+- [x] B5 retirer un salarié — retrait exécuté sur la chaîne, l'identité
+      hors chaîne n'étant effacée qu'ensuite. Défaut signalé par
+      l'utilisateur : la base était purgée avant même la signature.
 - [x] C5 déclencher la paie depuis un compte salarié — passe avec des frais
       provisionnés, échoue sans. Le caractère permissionless est vérifié dans
       les deux sens : le contrat n'oppose rien, le réseau oppose ses frais.
@@ -81,7 +84,6 @@ la chaîne, pas seulement d'avoir écrit le composant.
 ## To Do
 
 ### Écrans jamais rendus
-- [ ] B5 retirer un salarié — écran atteint, opération jamais exécutée
 - [ ] D3/D4 — succès et échec d'une transaction
 
 ### Exigences du cahier des charges
@@ -112,9 +114,10 @@ Toutes closes. Les deux dernières, déplacées ci-dessous.
       inachevée ; seul l'ordonnanceur l'est. Limites et prolongements repris.
 - [ ] **Dans Word** : sélectionner tout et actualiser les champs (F9). Le
       document est passé de 94 à 96 pages, la table des matières est périmée.
-- [ ] Figure 6 (déploiement) : sa note dit que MySQL ne stocke que « nom,
-      e-mail ». Il stocke aussi le poste, la date d'embauche et le registre des
-      bulletins. Rien de faux sur les paiements, mais la note est incomplète.
+- [x] Figure 6 (déploiement) redessinée : aucune source ne correspondait à
+      l'image du document. La note énumère désormais ce que MySQL conserve
+      vraiment, et le générateur de bulletins est placé dans le navigateur,
+      là où il s'exécute. §4.2.3 corrigé en conséquence.
 
 ### Reste à faire
 - [ ] Décodage des 15 erreurs personnalisées en messages français (partiel)
