@@ -98,15 +98,23 @@ Toutes closes. Les deux dernières, déplacées ci-dessous.
       salarié, inscription du bulletin d'autrui refusée (403). La sonde
       efface sa fiche : la table est revenue à zéro ligne.
 
-### Mémoire, à reprendre une fois la recette close
-- [ ] Régénérer `Diagrammes/Modèle de données hors chaîne/` d'après le DDL
-- [ ] 3.3.4 et 4.2.2 : décrire le schéma réellement déployé (quatre amendements)
-- [ ] 5.5 : la section affirme que l'application web n'est pas réalisée
-- [ ] CONCLUSION GÉNÉRALE : elle range « la remise d'un bulletin » parmi les
-      trois exigences satisfaites, **sans la réserve** que portent le 6.3.2 et le
-      tableau de conformité. À reprendre, dans un sens ou dans l'autre.
-- [ ] 6.3.2 : verser l'argument de B10 — l'immutabilité prive de rectification
+### Mémoire — aligné le 25/09/2026
+- [x] Figure 5 régénérée d'après le DDL, et l'image remplacée dans le document
+- [x] 3.3.4 et 4.2.2 : schéma réellement déployé, quatre amendements énoncés
+- [x] 5.5 : section réécrite — la couche hors chaîne est décrite comme réalisée,
+      avec les deux réserves (ordonnanceur, hébergement)
+- [x] 6.3.2 et grille de conformité : la réserve « de réalisation effective »
+      est levée, celle sur l'arrêté ministériel demeure. La CONCLUSION et le
+      6.3.2 disent désormais la même chose.
+- [x] 6.4.4 : l'argument de B10 versé — l'immutabilité prive de rectification
       les montants versés, non les identités, qui vivent hors chaîne
+- [x] CONCLUSION GÉNÉRALE : la couche hors chaîne n'est plus donnée pour
+      inachevée ; seul l'ordonnanceur l'est. Limites et prolongements repris.
+- [ ] **Dans Word** : sélectionner tout et actualiser les champs (F9). Le
+      document est passé de 94 à 96 pages, la table des matières est périmée.
+- [ ] Figure 6 (déploiement) : sa note dit que MySQL ne stocke que « nom,
+      e-mail ». Il stocke aussi le poste, la date d'embauche et le registre des
+      bulletins. Rien de faux sur les paiements, mais la note est incomplète.
 
 ### Reste à faire
 - [ ] Décodage des 15 erreurs personnalisées en messages français (partiel)
