@@ -38,7 +38,7 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-- [~] Recette de bout en bout — reste B5, D3/D4 et SF-08
+- [~] Recette de bout en bout — reste B5 et les écrans D3/D4
 
 ## Done — vu à l'écran, avec des données de la chaîne
 
@@ -84,11 +84,12 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [ ] B5 retirer un salarié — écran atteint, opération jamais exécutée
 - [ ] D3/D4 — succès et échec d'une transaction
 
-### Exigences du cahier des charges encore ouvertes
-- [~] **SF-08** éditer et télécharger les bulletins d'un cycle (employeur).
-      Écrit : colonne « Bulletin » en B8, bouton par versement et bouton
-      « Tout le cycle » sur `PayrollCompleted` (les `SalaryPaid` d'une même
-      transaction forment le cycle). Reste à l'exercer à l'écran.
+### Exigences du cahier des charges
+Toutes closes. Les deux dernières, déplacées ci-dessous.
+
+- [x] **SF-08** éditer et télécharger les bulletins d'un cycle (employeur).
+      Colonne « Bulletin » en B8 : un bouton par versement, un bouton « Tout le
+      cycle » sur `PayrollCompleted`. Chemin propriétaire exercé à l'écran.
 - [x] Consigner l'émission au registre `BulletinPaie` depuis l'interface.
       Chemin mesuré de bout en bout par `npm run verify:api`, qui compte
       désormais 19 contrôles : inscription refusée sans identité (409),
@@ -123,7 +124,3 @@ la chaîne, pas seulement d'avoir écrit le composant.
       (`useRole`, `enCours`, `Salaries.tsx`, `CHEMINS`) alors que la convention
       du projet — et celle du contrat — est l'anglais. Seuls les libellés
       affichés doivent rester en français.
-- [ ] **Couche Web2 absente.** Les informations hors chaîne (nom, poste, date
-      d'embauche, adresse électronique) vivent dans le navigateur. Ni API ni base
-      de données, donc pas d'édition de bulletins de paie côté serveur.
-      À arbitrer : est-ce dans le périmètre du mémoire, ou une limite assumée ?
