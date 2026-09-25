@@ -38,7 +38,7 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-- [~] Recette de bout en bout — restent les écrans D3/D4
+- [x] Recette de bout en bout — les 27 écrans relevés
 
 ## Done — vu à l'écran, avec des données de la chaîne
 
@@ -62,6 +62,9 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [x] C3 mes bulletins
 - [x] C4 mon profil — identité hors chaîne, note de confidentialité
 - [x] D1/D2 — confirmation puis attente de signature
+- [x] D3/D4 — succès et échec d'une transaction, deux états terminaux du
+      même dialogue : hachage et lien Etherscan d'un côté, message d'erreur
+      de l'autre
 - [x] A2 mauvais réseau — « Basculer sur Sepolia », relevé depuis un autre réseau
 - [x] A3 adresse non reconnue — quatrième compte, ni propriétaire ni salarié
 - [x] B4 modifier un salaire — opération exécutée sur la chaîne
@@ -82,9 +85,6 @@ la chaîne, pas seulement d'avoir écrit le composant.
       (`Développeur` relu en `44C3A976…`, 11 caractères pour 12 octets)
 
 ## To Do
-
-### Écrans jamais rendus
-- [ ] D3/D4 — succès et échec d'une transaction
 
 ### Exigences du cahier des charges
 Toutes closes. Les deux dernières, déplacées ci-dessous.
