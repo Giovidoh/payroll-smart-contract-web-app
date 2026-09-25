@@ -2,6 +2,7 @@ import { z } from "zod";
 import { createPublicClient, http } from "viem";
 import { parseSiweMessage, verifySiweMessage } from "viem/siwe";
 import { CHAIN } from "@/lib/contracts/config";
+import { AUTH_DOMAIN } from "@/lib/server/env";
 import {
   consommerAlea,
   ouvrirSession,
@@ -53,17 +54,20 @@ export async function POST(requete: Request): Promise<Response> {
     );
   }
 
-  const domaine = new URL(requete.url).host;
-
+  /*
+   * Le domaine attendu vient de la configuration du serveur, jamais de la
+   * requête : `new URL(requete.url).host` refléterait l'en-tête `Host`, que
+   * l'appelant fixe à sa guise. Une signature obtenue sur un site
+   * d'hameçonnage, donc portant son domaine, serait alors acceptée ici.
+   *
+   * L'aléa est passé explicitement pour que la vérification porte sur celui
+   * qui vient d'être consommé, et non sur un autre que le message porterait.
+   */
   const valide = await verifySiweMessage(client, {
     message,
     signature: signature as `0x${string}`,
-    /*
-     * Domaine et identifiant de chaîne sont vérifiés côté serveur, contre ses
-     * propres valeurs. Les lire dans le message reviendrait à demander à
-     * l'appelant de se contrôler lui-même.
-     */
-    domain: domaine,
+    domain: AUTH_DOMAIN,
+    nonce: champs.nonce,
   }).catch(() => false);
 
   if (!valide) {

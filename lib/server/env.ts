@@ -20,6 +20,17 @@ function requis(nom: string): string {
 export const DATABASE_URL = requis("DATABASE_URL");
 
 /**
+ * Domaine attendu dans le message EIP-4361, par exemple `localhost:3000`.
+ *
+ * Il doit être épinglé ici et jamais déduit de la requête. Le domaine est ce
+ * qui lie une signature au site pour lequel l'utilisateur a cru signer : le
+ * lire dans l'en-tête `Host`, que l'appelant contrôle, reviendrait à lui
+ * demander de se contrôler lui-même, et une signature obtenue sur un site
+ * d'hameçonnage serait acceptée ici.
+ */
+export const AUTH_DOMAIN = requis("AUTH_DOMAIN");
+
+/**
  * Clef de signature du cookie de session. Une valeur changée invalide toutes les
  * sessions en cours, ce qui est le comportement recherché.
  */

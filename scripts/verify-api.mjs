@@ -56,6 +56,32 @@ const { statut: s3 } = await appel("/api/auth/session", {
 });
 verifier("le rejeu du meme alea est refuse", s3 === 401, `statut ${s3}`);
 
+// 3 bis. Message signe pour un autre domaine, presente avec l'en-tete Host
+// correspondant. Le serveur doit refuser : le domaine attendu est epingle dans
+// sa configuration et ne se deduit pas de la requete. Sans cela, une signature
+// obtenue sur un site d'hameconnage serait acceptee ici.
+{
+  const { corps: n } = await appel("/api/auth/nonce", { method: "POST" });
+  const menteur = createSiweMessage({
+    address: compte.address,
+    chainId: 11155111,
+    domain: "hameconnage.example",
+    nonce: n.alea,
+    uri: "https://hameconnage.example",
+    version: "1",
+  });
+  const sig = await compte.signMessage({ message: menteur });
+  const garde = cookie;
+  cookie = "";
+  const { statut } = await appel("/api/auth/session", {
+    method: "POST",
+    headers: { host: "hameconnage.example" },
+    body: JSON.stringify({ message: menteur, signature: sig }),
+  });
+  verifier("un message signe pour un autre domaine est refuse", statut === 401, `statut ${statut}`);
+  cookie = garde;
+}
+
 // 4. Lecture : ni proprietaire ni salarie -> liste vide, pas un refus
 const { statut: s4, corps: c4 } = await appel("/api/employees");
 verifier("la lecture aboutit", s4 === 200, `statut ${s4}`);
