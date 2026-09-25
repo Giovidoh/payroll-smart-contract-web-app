@@ -32,6 +32,26 @@ export type DonneesBulletin = {
 
 const MARGE = 18;
 
+/**
+ * jsPDF n'embarque pas de police : il s'appuie sur les polices standard du
+ * format PDF, dont le répertoire s'arrête à CP1252. Un caractère hors de ce
+ * répertoire fait basculer la chaîne entière dans un encodage sur deux octets
+ * que la police ne sait pas rendre, et chaque caractère ressort séparé.
+ *
+ * `Intl.NumberFormat("fr-FR")` sépare les milliers par une espace fine
+ * insécable (U+202F), qui est précisément dans ce cas : « 2 000,00 mUSDC »
+ * s'imprimait « 2 / 0 0 0 , 0 0   m U S D C ». L'ellipsis des hachages, elle,
+ * passe sans encombre, CP1252 la connaissant à 0x85.
+ *
+ * On ne touche pas à `formatToken` : à l'écran, l'espace fine est le bon
+ * caractère. C'est l'impression qui a cette contrainte, pas le formatage.
+ */
+function assainir(texte: string): string {
+  return texte
+    .replace(/[      ]/g, " ")
+    .replace(/−/g, "-");
+}
+
 export function engendrerBulletin(d: DonneesBulletin): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const largeur = doc.internal.pageSize.getWidth();
@@ -39,14 +59,14 @@ export function engendrerBulletin(d: DonneesBulletin): jsPDF {
 
   const titre = (t: string) => {
     doc.setFont("helvetica", "bold").setFontSize(13);
-    doc.text(t, MARGE, y);
+    doc.text(assainir(t), MARGE, y);
     y += 7;
   };
 
   const section = (t: string) => {
     y += 3;
     doc.setFont("helvetica", "bold").setFontSize(9.5);
-    doc.text(t.toUpperCase(), MARGE, y);
+    doc.text(assainir(t).toUpperCase(), MARGE, y);
     y += 1.5;
     doc.setDrawColor(190).line(MARGE, y, largeur - MARGE, y);
     y += 5;
@@ -54,11 +74,11 @@ export function engendrerBulletin(d: DonneesBulletin): jsPDF {
 
   const ligne = (label: string, valeur: string, gras = false) => {
     doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(90);
-    doc.text(label, MARGE, y);
+    doc.text(assainir(label), MARGE, y);
     doc
       .setFont("helvetica", gras ? "bold" : "normal")
       .setTextColor(20);
-    doc.text(valeur, largeur - MARGE, y, { align: "right" });
+    doc.text(assainir(valeur), largeur - MARGE, y, { align: "right" });
     y += 5.5;
   };
 
@@ -69,7 +89,7 @@ export function engendrerBulletin(d: DonneesBulletin): jsPDF {
   titre("Bulletin de paie");
   doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(110);
   doc.text(
-    `Émis le ${formatDateTime(BigInt(Math.floor(Date.now() / 1000)))}`,
+    assainir(`Émis le ${formatDateTime(BigInt(Math.floor(Date.now() / 1000)))}`),
     MARGE,
     y
   );
@@ -94,20 +114,20 @@ export function engendrerBulletin(d: DonneesBulletin): jsPDF {
   y += 2;
   doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(110);
   const note = doc.splitTextToSize(
-    "Le versement ci-dessus est attesté par la transaction référencée, inscrite de façon " +
+    assainir("Le versement ci-dessus est attesté par la transaction référencée, inscrite de façon " +
       "horodatée et infalsifiable sur le registre public. Elle est vérifiable par tout tiers " +
       "à l'adresse suivante : " +
-      explorerTx(d.hash),
+      explorerTx(d.hash)),
     largeur - 2 * MARGE
   );
   doc.text(note, MARGE, y);
   y += note.length * 4 + 4;
 
   const reserve = doc.splitTextToSize(
-    "Réserve : ce document est produit hors chaîne à titre de justificatif de versement. " +
+    assainir("Réserve : ce document est produit hors chaîne à titre de justificatif de versement. " +
       "Il ne comporte ni retenues ni cotisations sociales, le dispositif n'en gérant aucune, " +
       "et sa contexture n'a pas été vérifiée au regard de l'arrêté pris en application de " +
-      "l'article 166 du Code du travail.",
+      "l'article 166 du Code du travail."),
     largeur - 2 * MARGE
   );
   doc.setTextColor(140);
