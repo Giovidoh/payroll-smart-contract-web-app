@@ -13,7 +13,7 @@ import {
   LienTransaction,
 } from "../ui-kit";
 import { useMonEspace } from "../../hooks/use-mon-espace";
-import { useFiches } from "../../store/directory-store";
+import { useFiches } from "../../hooks/use-directory";
 import { engendrerBulletin, nomFichierBulletin } from "../../lib/bulletin";
 
 export default function MesBulletins() {

@@ -7,9 +7,11 @@ import { toast } from "sonner";
 import { CHAIN } from "@/lib/contracts/config";
 import AppShell, { type Ecran } from "./AppShell";
 import ConnexionEcran from "./ConnexionEcran";
+import SignatureEcran from "./SignatureEcran";
 import DialogueTransaction from "./DialogueTransaction";
 import { Squelette } from "./ui-kit";
 import { useRole } from "../hooks/use-payroll";
+import { useSession } from "../hooks/use-session";
 import { useMonte } from "../hooks/use-monte";
 import { useTransaction } from "../hooks/use-transaction";
 import { CHEMINS, ecranDepuisChemin } from "../routes";
@@ -28,6 +30,7 @@ import DeclencherPaie from "./salarie/DeclencherPaie";
 export default function Application() {
   const { isConnected, chainId, status } = useAccount();
   const { role, enCours } = useRole();
+  const session = useSession();
   const monte = useMonte();
   const router = useRouter();
   const chemin = usePathname();
@@ -70,6 +73,16 @@ export default function Application() {
   }
 
   if (role === "inconnu") return <ConnexionEcran />;
+
+  /*
+   * La session hors chaîne vient après le rôle, et non avant : le rôle se lit
+   * sur la chaîne, gratuitement et sans rien demander à personne. Une adresse
+   * que le contrat ne reconnaît pas n'a donc pas à signer quoi que ce soit —
+   * ce serait lui faire payer une étape pour un espace auquel elle n'accède
+   * pas.
+   */
+  if (session.enCours) return <Attente texte="Vérification de la session…" />;
+  if (!session.active) return <SignatureEcran />;
 
   const demander = tx.demander;
   const naviguer = (e: Ecran) => router.push(CHEMINS[e]);
@@ -114,11 +127,11 @@ export default function Application() {
   );
 }
 
-function Attente() {
+function Attente({ texte = "Lecture du rôle sur la chaîne…" }: { texte?: string }) {
   return (
     <main className="mx-auto grid max-w-md gap-3 p-10">
       <Squelette lignes={4} />
-      <p className="text-ink-2">Lecture du rôle sur la chaîne…</p>
+      <p className="text-ink-2">{texte}</p>
     </main>
   );
 }

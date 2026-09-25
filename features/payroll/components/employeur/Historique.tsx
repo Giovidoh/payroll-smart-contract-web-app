@@ -18,7 +18,7 @@ import {
   LIBELLES,
   type TypeEvenement,
 } from "../../hooks/use-events";
-import { useFiches, nomAffiche } from "../../store/directory-store";
+import { useFiches, nomAffiche } from "../../hooks/use-directory";
 
 const TON: Record<string, "ok" | "warn" | "accent" | "neutre"> = {
   PayrollCompleted: "ok",

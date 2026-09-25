@@ -23,7 +23,7 @@ import {
 } from "../ui-kit";
 import { useMonEspace } from "../../hooks/use-mon-espace";
 import { useEcheance } from "../../hooks/use-echeance";
-import { useFiches } from "../../store/directory-store";
+import { useFiches } from "../../hooks/use-directory";
 import type { Ecran } from "../AppShell";
 
 /* ------------------------------------------------------------------ C1 */

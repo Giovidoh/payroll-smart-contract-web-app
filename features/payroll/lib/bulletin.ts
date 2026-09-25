@@ -6,7 +6,7 @@ import {
   CHAIN,
   explorerTx,
 } from "@/lib/contracts/config";
-import type { FicheSalarie } from "../store/directory-store";
+import type { Fiche } from "../hooks/use-directory";
 
 /**
  * Bulletin de paie, produit hors chaîne.
@@ -22,7 +22,7 @@ import type { FicheSalarie } from "../store/directory-store";
  * le dispositif permet d'établir, pas davantage.
  */
 export type DonneesBulletin = {
-  salarie: FicheSalarie | undefined;
+  salarie: Fiche | undefined;
   adresse: string;
   montant: bigint;
   /** Horodatage du bloc, en secondes. */

@@ -16,7 +16,8 @@ import {
   Requis,
 } from "../ui-kit";
 import { useSalaries } from "../../hooks/use-payroll";
-import { useFiches, useDirectoryStore, nomAffiche } from "../../store/directory-store";
+import { useFiches, useEcrireFiche, nomAffiche } from "../../hooks/use-directory";
+import RepriseLocale from "./RepriseLocale";
 import type { Operation } from "../../hooks/use-transaction";
 
 const champ =
@@ -35,8 +36,7 @@ export default function Salaries({
 }) {
   const { data: salaries, isLoading } = useSalaries();
   const fiches = useFiches();
-  const enregistrer = useDirectoryStore((s) => s.enregistrer);
-  const supprimer = useDirectoryStore((s) => s.supprimer);
+  const { enregistrer, supprimer } = useEcrireFiche();
 
   const [recherche, setRecherche] = useState("");
   const [tri, setTri] = useState<"nom" | "salaire" | "adresse">("salaire");
@@ -99,6 +99,8 @@ export default function Salaries({
           </button>
         </div>
       </Panneau>
+
+      <RepriseLocale />
 
       {panneau?.mode === "ajout" && (
         <PanneauAjout

@@ -20,7 +20,7 @@ import {
 import { useSalaries, useTresorerie } from "../../hooks/use-payroll";
 import { useEcheance } from "../../hooks/use-echeance";
 import { useEvenements } from "../../hooks/use-events";
-import { useFiches, nomAffiche } from "../../store/directory-store";
+import { useFiches, nomAffiche } from "../../hooks/use-directory";
 import type { Operation } from "../../hooks/use-transaction";
 
 export default function ExecutionPaie({

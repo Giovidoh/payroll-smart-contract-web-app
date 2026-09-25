@@ -24,7 +24,7 @@ import {
 import { useSalaries, useTresorerie } from "../../hooks/use-payroll";
 import { useEcheance } from "../../hooks/use-echeance";
 import { useEvenements, LIBELLES, type Evenement } from "../../hooks/use-events";
-import { useFiches, nomAffiche, type FicheSalarie } from "../../store/directory-store";
+import { useFiches, nomAffiche, type Fiche } from "../../hooks/use-directory";
 import type { Ecran } from "../AppShell";
 
 const TON: Record<string, "ok" | "warn" | "accent" | "neutre"> = {
@@ -215,7 +215,7 @@ function LigneEvenement({
   fiches,
 }: {
   e: Evenement;
-  fiches: Record<string, FicheSalarie>;
+  fiches: Record<string, Fiche>;
 }) {
   const detail =
     e.type === "PayrollCompleted"
