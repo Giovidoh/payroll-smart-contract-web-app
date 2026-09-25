@@ -9,7 +9,7 @@
     "lint": "eslint",
     "abi": "node scripts/generate-abi.mjs",
     "typecheck": "tsc --noEmit",
-    "verify:api": "node scripts/verify-api.mjs"
+    "verify:api": "node --env-file=.env.local scripts/verify-api.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

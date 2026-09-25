@@ -1,6 +1,5 @@
 "use client";
 
-import { toast } from "sonner";
 import { formatToken, formatDateTime } from "@/lib/format";
 import {
   Panneau,
@@ -13,22 +12,12 @@ import {
   LienTransaction,
 } from "../ui-kit";
 import { useMonEspace } from "../../hooks/use-mon-espace";
-import { useFiches } from "../../hooks/use-directory";
-import { engendrerBulletin, nomFichierBulletin } from "../../lib/bulletin";
+import { useEmettreBulletin, useRegistre, repere } from "../../hooks/use-bulletins";
 
 export default function MesBulletins() {
   const { versements, adresse, enCours, echecJournaux } = useMonEspace();
-  const fiches = useFiches();
-  const fiche = adresse ? fiches[adresse.toLowerCase()] : undefined;
-
-  const telecharger = (montant: bigint, date: bigint, hash: string) => {
-    try {
-      const donnees = { salarie: fiche, adresse: adresse!, montant, date, hash };
-      engendrerBulletin(donnees).save(nomFichierBulletin(donnees));
-    } catch {
-      toast.error("La génération du bulletin a échoué.");
-    }
-  };
+  const emettre = useEmettreBulletin();
+  const { emis } = useRegistre();
 
   return (
     <Panneau titre={`Mes bulletins (${versements.length})`}>
@@ -75,11 +64,27 @@ export default function MesBulletins() {
                 </Td>
                 <Td align="right">
                   <button
-                    onClick={() => telecharger(v.montant!, v.date, v.hash)}
+                    onClick={() =>
+                      emettre({
+                        adresse: adresse!,
+                        montant: v.montant!,
+                        date: v.date,
+                        hash: v.hash,
+                        logIndex: v.logIndex,
+                      })
+                    }
                     className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
                   >
                     Télécharger
                   </button>
+                  {emis.has(repere(v.hash, v.logIndex)) && (
+                    <span
+                      className="ml-2 text-[11px] text-ink-3"
+                      title="Ce bulletin est inscrit au registre de paie."
+                    >
+                      inscrit
+                    </span>
+                  )}
                 </Td>
               </tr>
             ))}

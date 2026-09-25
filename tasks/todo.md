@@ -85,10 +85,17 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [ ] D3/D4 — succès et échec d'une transaction
 
 ### Exigences du cahier des charges encore ouvertes
-- [ ] **SF-08** éditer et télécharger les bulletins d'un cycle (employeur).
-      SF-12 (téléchargement par le salarié) est fait depuis C3.
-- [ ] Consigner l'émission au registre `BulletinPaie` depuis l'interface —
-      la table et le point d'accès existent, rien ne les alimente encore
+- [~] **SF-08** éditer et télécharger les bulletins d'un cycle (employeur).
+      Écrit : colonne « Bulletin » en B8, bouton par versement et bouton
+      « Tout le cycle » sur `PayrollCompleted` (les `SalaryPaid` d'une même
+      transaction forment le cycle). Reste à l'exercer à l'écran.
+- [x] Consigner l'émission au registre `BulletinPaie` depuis l'interface.
+      Chemin mesuré de bout en bout par `npm run verify:api`, qui compte
+      désormais 19 contrôles : inscription refusée sans identité (409),
+      hachage mal formé refusé (400), inscription aboutie, idempotence
+      vérifiée en base (deux émissions, une seule ligne), relecture par le
+      salarié, inscription du bulletin d'autrui refusée (403). La sonde
+      efface sa fiche : la table est revenue à zéro ligne.
 
 ### Mémoire, à reprendre une fois la recette close
 - [ ] Régénérer `Diagrammes/Modèle de données hors chaîne/` d'après le DDL

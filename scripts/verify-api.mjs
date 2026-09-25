@@ -106,6 +106,83 @@ cookie = vrai;
 const { statut: s7, corps: c7 } = await appel("/api/payslips");
 verifier("le registre repond", s7 === 200 && Array.isArray(c7?.bulletins), `statut ${s7}`);
 
+// 7 bis. Registre de paie : inscription d'un bulletin.
+//
+// Le compte jetable n'a aucune fiche : l'inscription doit etre refusee, la
+// chaine payant des adresses et le registre nommant des personnes. On seme
+// ensuite une fiche directement en base pour verifier le chemin complet, y
+// compris l'idempotence — reemettre un bulletin n'ajoute pas une ligne, le
+// registre attestant un versement et non un telechargement.
+const hachage = "0x" + "ab".repeat(32);
+
+{
+  const { statut, corps } = await appel("/api/payslips", {
+    method: "POST",
+    body: JSON.stringify({ adresse: compte.address, hash: hachage, numeroLog: 3 }),
+  });
+  verifier("sans identite, le bulletin n'est pas inscrit", statut === 409, `statut ${statut}`);
+  if (statut !== 409) console.log("   ", JSON.stringify(corps));
+}
+
+{
+  const { statut } = await appel("/api/payslips", {
+    method: "POST",
+    body: JSON.stringify({ adresse: compte.address, hash: "0x12", numeroLog: 3 }),
+  });
+  verifier("un hachage mal forme est refuse", statut === 400, `statut ${statut}`);
+}
+
+const mysql = await import("mysql2/promise").then((m) => m.default);
+const bd = await mysql.createConnection(process.env.DATABASE_URL);
+const contrat = process.env.NEXT_PUBLIC_PAYROLL_ADDRESS.toLowerCase();
+const adresse = compte.address.toLowerCase();
+try {
+  await bd.execute(
+    "INSERT INTO Employe (adresse_contrat, adresse_ethereum, nom, prenom) VALUES (?, ?, 'Sonde', 'Verif')",
+    [contrat, adresse]
+  );
+
+  const { statut: sa } = await appel("/api/payslips", {
+    method: "POST",
+    body: JSON.stringify({ adresse: compte.address, hash: hachage, numeroLog: 3 }),
+  });
+  verifier("le bulletin est inscrit au registre", sa === 200, `statut ${sa}`);
+
+  const { statut: sb } = await appel("/api/payslips", {
+    method: "POST",
+    body: JSON.stringify({ adresse: compte.address, hash: hachage, numeroLog: 3 }),
+  });
+  verifier("la reinscription est idempotente", sb === 200, `statut ${sb}`);
+
+  const [compte_lignes] = await bd.execute(
+    `SELECT COUNT(*) AS n FROM BulletinPaie b JOIN Employe e ON e.id = b.employe_id
+      WHERE e.adresse_ethereum = ? AND b.hash_transaction = ?`,
+    [adresse, hachage]
+  );
+  verifier("une seule ligne en base pour deux emissions",
+    compte_lignes[0].n === 1, `${compte_lignes[0].n} ligne(s)`);
+
+  const { corps: reg } = await appel("/api/payslips");
+  const vu = (reg?.bulletins ?? []).find(
+    (b) => b.hash_transaction === hachage && b.numero_log === 3
+  );
+  verifier("le salarie relit son bulletin dans le registre", Boolean(vu), JSON.stringify(vu));
+
+  const { statut: sc } = await appel("/api/payslips", {
+    method: "POST",
+    body: JSON.stringify({
+      adresse: "0x000000000000000000000000000000000000dEaD",
+      hash: hachage,
+      numeroLog: 4,
+    }),
+  });
+  verifier("nul n'inscrit le bulletin d'autrui", sc === 403, `statut ${sc}`);
+} finally {
+  // La sonde ne laisse rien derriere elle : la cascade emporte les bulletins.
+  await bd.execute("DELETE FROM Employe WHERE adresse_ethereum = ?", [adresse]);
+  await bd.end();
+}
+
 // 8. Deconnexion
 const { statut: s8 } = await appel("/api/auth/session", { method: "DELETE" });
 verifier("la session se ferme", s8 === 200);
