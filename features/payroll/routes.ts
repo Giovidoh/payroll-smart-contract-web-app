@@ -25,6 +25,7 @@ export const CHEMINS: Record<Ecran, string> = {
   B7: "/run-payroll",
   B8: "/history",
   B9: "/settings",
+  B10: "/employees/edit-identity",
   C1: "/overview",
   C2: "/my-payments",
   C3: "/my-payslips",

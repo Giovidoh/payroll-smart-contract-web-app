@@ -10,7 +10,7 @@ import { CHAIN } from "@/lib/contracts/config";
 import type { Role } from "../hooks/use-payroll";
 
 export type Ecran =
-  | "B1" | "B2" | "B3" | "B4" | "B5" | "B6" | "B7" | "B8" | "B9"
+  | "B1" | "B2" | "B3" | "B4" | "B5" | "B6" | "B7" | "B8" | "B9" | "B10"
   | "C1" | "C2" | "C3" | "C4" | "C5";
 
 export const TITRES: Record<Ecran, string> = {
@@ -23,6 +23,7 @@ export const TITRES: Record<Ecran, string> = {
   B7: "Exécution de la paie",
   B8: "Historique",
   B9: "Paramètres",
+  B10: "Modifier une identité",
   C1: "Vue d'ensemble",
   C2: "Mes versements",
   C3: "Mes bulletins",
@@ -34,7 +35,12 @@ const NAV_EMPLOYEUR: Ecran[] = ["B1", "B2", "B6", "B7", "B8", "B9"];
 const NAV_SALARIE: Ecran[] = ["C1", "C2", "C3", "C4"];
 
 /** Les sous-écrans B3/B4/B5 restent sous l'entrée « Salariés » dans la navigation. */
-const GROUPE: Partial<Record<Ecran, Ecran>> = { B3: "B2", B4: "B2", B5: "B2" };
+const GROUPE: Partial<Record<Ecran, Ecran>> = {
+  B3: "B2",
+  B4: "B2",
+  B5: "B2",
+  B10: "B2",
+};
 
 export default function AppShell({
   role,

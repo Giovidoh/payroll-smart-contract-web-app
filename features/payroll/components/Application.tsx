@@ -94,9 +94,11 @@ export default function Application() {
         {role === "employeur" ? (
           <>
             {ecran === "B1" && <VueEnsemble onNaviguer={naviguer} />}
-            {(ecran === "B2" || ecran === "B3" || ecran === "B4" || ecran === "B5") && (
-              <Salaries onDemander={demander} />
-            )}
+            {(ecran === "B2" ||
+              ecran === "B3" ||
+              ecran === "B4" ||
+              ecran === "B5" ||
+              ecran === "B10") && <Salaries onDemander={demander} />}
             {ecran === "B6" && <Tresorerie onDemander={demander} />}
             {ecran === "B7" && <ExecutionPaie onDemander={demander} />}
             {ecran === "B8" && <Historique />}

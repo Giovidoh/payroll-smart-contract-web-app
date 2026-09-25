@@ -16,7 +16,12 @@ import {
   Requis,
 } from "../ui-kit";
 import { useSalaries } from "../../hooks/use-payroll";
-import { useFiches, useEcrireFiche, nomAffiche } from "../../hooks/use-directory";
+import {
+  useFiches,
+  useEcrireFiche,
+  nomAffiche,
+  type Fiche,
+} from "../../hooks/use-directory";
 import RepriseLocale from "./RepriseLocale";
 import type { Operation } from "../../hooks/use-transaction";
 
@@ -27,7 +32,10 @@ const principal =
 const secondaire =
   "rounded-sm border border-line-2 bg-card px-3 py-2 hover:bg-surface-2";
 
-type Panneaux = null | { mode: "ajout" } | { mode: "salaire" | "retrait"; adresse: Address };
+type Panneaux =
+  | null
+  | { mode: "ajout" }
+  | { mode: "salaire" | "retrait" | "identite"; adresse: Address };
 
 export default function Salaries({
   onDemander,
@@ -121,6 +129,15 @@ export default function Salaries({
         />
       )}
 
+      {panneau?.mode === "identite" && (
+        <PanneauIdentite
+          adresse={panneau.adresse}
+          fiche={fiches[panneau.adresse.toLowerCase()]}
+          onFermer={() => setPanneau(null)}
+          onFiche={enregistrer}
+        />
+      )}
+
       {panneau?.mode === "retrait" && (
         <PanneauRetrait
           adresse={panneau.adresse}
@@ -164,6 +181,12 @@ export default function Salaries({
                   </Td>
                   <Td align="right">
                     <div className="flex justify-end gap-1.5">
+                      <button
+                        className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
+                        onClick={() => setPanneau({ mode: "identite", adresse: l.adresse })}
+                      >
+                        Identité
+                      </button>
                       <button
                         className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
                         onClick={() => setPanneau({ mode: "salaire", adresse: l.adresse })}
@@ -501,6 +524,120 @@ function PanneauRetrait({
           }}
         >
           Retirer définitivement
+        </button>
+        <button className={secondaire} onClick={onFermer}>
+          Annuler
+        </button>
+      </div>
+    </Panneau>
+  );
+}
+
+/* ----------------------------------------------------------------- B10 */
+
+/**
+ * Modification de l'identité hors chaîne.
+ *
+ * Aucune transaction : ni le nom, ni le poste, ni l'adresse électronique
+ * n'existent sur la chaîne, et c'est voulu — les y inscrire rendrait publique
+ * la rémunération de personnes nommées. Il n'y a donc rien à signer, rien à
+ * attendre du réseau, et aucun frais.
+ *
+ * L'écran illustre au passage ce que le chapitre 6 reproche à l'immutabilité :
+ * une erreur de saisie sur un montant versé est définitive, tandis qu'une
+ * erreur sur une identité se corrige ici en quelques secondes. La couche hors
+ * chaîne ne fait pas que rendre le dispositif utilisable, elle lui rend une
+ * faculté de rectification que la chaîne lui refuse.
+ */
+function PanneauIdentite({
+  adresse,
+  fiche,
+  onFermer,
+  onFiche,
+}: {
+  adresse: Address;
+  fiche: Fiche | undefined;
+  onFermer: () => void;
+  onFiche: (f: Fiche) => void;
+}) {
+  const [prenom, setPrenom] = useState(fiche?.prenom ?? "");
+  const [nom, setNom] = useState(fiche?.nom ?? "");
+  const [poste, setPoste] = useState(fiche?.poste ?? "");
+  const [email, setEmail] = useState(fiche?.email ?? "");
+  const [embauche, setEmbauche] = useState(fiche?.embauche ?? "");
+
+  const pret = prenom.trim().length > 0 && nom.trim().length > 0;
+
+  return (
+    <Panneau titre={fiche ? "Modifier une identité" : "Renseigner une identité"}>
+      <p className="mb-1 text-ink-2">
+        Ces informations ne sont pas inscrites sur la chaîne et ne demandent
+        aucune transaction. Elles servent à nommer le salarié dans
+        l&apos;interface et sur ses bulletins de paie.
+      </p>
+      <p className="mb-4 font-mono text-[11px] text-ink-3">{adresse}</p>
+
+      <p className="mb-4 text-[11px] text-ink-3">
+        Les champs suivis d&apos;un <span className="text-err">*</span> sont
+        obligatoires ; les autres sont facultatifs.
+      </p>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1">
+          <span className="text-ink-2">
+            Prénom
+            <Requis />
+          </span>
+          <input value={prenom} onChange={(e) => setPrenom(e.target.value)} className={champ} />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-ink-2">
+            Nom
+            <Requis />
+          </span>
+          <input value={nom} onChange={(e) => setNom(e.target.value)} className={champ} />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-ink-2">Poste</span>
+          <input value={poste} onChange={(e) => setPoste(e.target.value)} className={champ} />
+        </label>
+        <label className="grid gap-1">
+          <span className="text-ink-2">Date d&apos;embauche</span>
+          <input
+            type="date"
+            value={embauche}
+            onChange={(e) => setEmbauche(e.target.value)}
+            className={champ}
+          />
+        </label>
+        <label className="grid gap-1 sm:col-span-2">
+          <span className="text-ink-2">Adresse électronique</span>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className={champ}
+          />
+        </label>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button
+          className={principal}
+          disabled={!pret}
+          onClick={() => {
+            onFiche({
+              address: adresse.toLowerCase(),
+              prenom: prenom.trim(),
+              nom: nom.trim(),
+              poste: poste.trim(),
+              email: email.trim(),
+              embauche,
+            });
+            onFermer();
+          }}
+        >
+          Enregistrer
         </button>
         <button className={secondaire} onClick={onFermer}>
           Annuler
