@@ -37,6 +37,21 @@ export type Operation = {
   etapes?: string[];
   /** Les appels à enchaîner, dans l'ordre. */
   appels: AppelContrat[];
+  /**
+   * Effet hors chaîne à n'exécuter qu'une fois la chaîne acquise.
+   *
+   * Les deux couches n'ont pas les mêmes garanties : la chaîne refuse, revient
+   * en arrière, ou n'est jamais signée, tandis qu'une écriture en base est
+   * acquise dès qu'elle est faite. Écrire ou effacer hors chaîne avant la
+   * signature, c'est donc engager la couche qui ne sait pas revenir sur la foi
+   * de celle qui peut encore refuser — et, pour un retrait, perdre l'identité
+   * d'un salarié qui figure toujours dans le contrat.
+   *
+   * L'inverse — la chaîne acquise, l'effet hors chaîne manqué — reste possible
+   * et n'est pas réparé ici : il laisse une fiche orpheline, visible et
+   * corrigeable à la main. C'est l'asymétrie acceptable des deux.
+   */
+  apres?: () => void | Promise<void>;
 };
 
 export type AppelContrat = {
@@ -130,6 +145,20 @@ export function useTransaction() {
     }
 
     setEtat({ phase: "succes", hash: dernierHash! });
+
+    /*
+     * L'effet hors chaîne suit le succès, il ne le conditionne pas : la
+     * transaction est dans un bloc, la dire échouée parce qu'une écriture en
+     * base a manqué serait faux. Les appelants signalent eux-mêmes leur échec.
+     */
+    if (operation.apres) {
+      try {
+        await operation.apres();
+      } catch {
+        /* Déjà signalé par l'appelant. */
+      }
+    }
+
     return true;
   }, [operation, client, address, config]);
 

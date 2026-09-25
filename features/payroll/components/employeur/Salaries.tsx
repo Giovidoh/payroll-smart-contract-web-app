@@ -237,7 +237,7 @@ function PanneauAjout({
     poste: string;
     email: string;
     embauche: string;
-  }) => void;
+  }) => Promise<boolean>;
   dejaInscrites: Set<string>;
 }) {
   const [adresse, setAdresse] = useState("");
@@ -344,7 +344,6 @@ function PanneauAjout({
           className={principal}
           disabled={!pret}
           onClick={() => {
-            onFiche({ address: adresse, prenom, nom, poste, email, embauche });
             onDemander({
               titre: "Ajouter un salarié",
               code: "B3",
@@ -361,6 +360,9 @@ function PanneauAjout({
                   args: [adresse as Address, montant!],
                 },
               ],
+              apres: async () => {
+                await onFiche({ address: adresse, prenom, nom, poste, email, embauche });
+              },
             });
             onFermer();
           }}
@@ -477,7 +479,7 @@ function PanneauRetrait({
   nom: string;
   onFermer: () => void;
   onDemander: (o: Operation) => void;
-  onOublier: (a: string) => void;
+  onOublier: (a: string) => Promise<boolean>;
 }) {
   const [confirmation, setConfirmation] = useState("");
   const pret = confirmation.trim().toUpperCase() === "RETIRER";
@@ -489,6 +491,11 @@ function PanneauRetrait({
         exécution, cette adresse ne recevra plus rien. Les versements passés restent
         inscrits en chaîne et demeurent consultables — c&apos;est ce qui fait leur
         valeur probatoire.
+      </p>
+      <p className="mb-3 text-ink-2">
+        L&apos;identité hors chaîne sera effacée de la base, mais seulement une fois
+        le retrait acquis en chaîne : si vous n&apos;allez pas au bout de la
+        signature, rien n&apos;est perdu.
       </p>
 
       <label className="grid gap-1">
@@ -517,9 +524,12 @@ function PanneauRetrait({
               appels: [
                 { cible: "payroll", fonction: "removeEmployee", args: [adresse] },
               ],
+              apres: async () => {
+                if (await onOublier(adresse)) {
+                  toast.info("Identité hors chaîne effacée de la base.");
+                }
+              },
             });
-            onOublier(adresse);
-            toast.info("Fiche hors chaîne effacée de ce navigateur.");
             onFermer();
           }}
         >
@@ -558,7 +568,7 @@ function PanneauIdentite({
   adresse: Address;
   fiche: Fiche | undefined;
   onFermer: () => void;
-  onFiche: (f: Fiche) => void;
+  onFiche: (f: Fiche) => Promise<boolean>;
 }) {
   const [prenom, setPrenom] = useState(fiche?.prenom ?? "");
   const [nom, setNom] = useState(fiche?.nom ?? "");

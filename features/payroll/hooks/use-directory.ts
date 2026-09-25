@@ -138,9 +138,23 @@ export function useEcrireFiche() {
     onError: (e: Error) => toast.error(`La fiche n'a pas été retirée : ${e.message}`),
   });
 
+  /*
+   * Les deux écritures rendent un booléen plutôt que rien : l'appelant qui
+   * enchaîne dessus — annoncer l'effacement, par exemple — doit pouvoir
+   * distinguer l'écriture faite de l'écriture manquée. Le motif de l'échec,
+   * lui, est déjà signalé par `onError`, d'où le rejet absorbé ici.
+   */
   return {
-    enregistrer: (fiche: Fiche) => enregistrer.mutate(fiche),
-    supprimer: (address: string) => supprimer.mutate(address),
+    enregistrer: (fiche: Fiche) =>
+      enregistrer.mutateAsync(fiche).then(
+        () => true,
+        () => false
+      ),
+    supprimer: (address: string) =>
+      supprimer.mutateAsync(address).then(
+        () => true,
+        () => false
+      ),
     enCours: enregistrer.isPending || supprimer.isPending,
   };
 }
