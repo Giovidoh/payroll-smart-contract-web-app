@@ -1,0 +1,41 @@
+# Base MySQL de la couche hors chaîne.
+#
+# Le chapitre 3.3.4 du mémoire retient MySQL pour les données nominatives, qui
+# n'ont pas leur place sur une chaîne publique et immuable. Le conteneur rend
+# cette dépendance reproductible : aucune installation sur la machine, et le
+# schéma est rejoué à l'identique à chaque création du volume.
+#
+#   docker compose up -d        démarrer
+#   docker compose down         arrêter (les données survivent)
+#   docker compose down -v      arrêter et effacer les données
+#
+# Les identifiants ci-dessous ne valent que pour le développement local. La base
+# n'est pas exposée hors de la machine hôte.
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: paie-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: racine-dev
+      MYSQL_DATABASE: paie_blockchain
+      MYSQL_USER: paie
+      MYSQL_PASSWORD: paie-dev
+    ports:
+      # Lié à la boucle locale uniquement : le port n'est pas ouvert au réseau.
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      # Les fichiers de ce répertoire sont exécutés dans l'ordre alphabétique,
+      # une seule fois, à la première création du volume.
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-pracine-dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+volumes:
+  mysql-data:
