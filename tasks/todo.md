@@ -38,7 +38,7 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-- [~] Recette de bout en bout — reste B5 et les écrans D3/D4
+- [~] Recette de bout en bout — reste B5, D3/D4 et SF-08
 
 ## Done — vu à l'écran, avec des données de la chaîne
 
@@ -68,12 +68,37 @@ la chaîne, pas seulement d'avoir écrit le composant.
 - [x] C5 déclencher la paie depuis un compte salarié — passe avec des frais
       provisionnés, échoue sans. Le caractère permissionless est vérifié dans
       les deux sens : le contrat n'oppose rien, le réseau oppose ses frais.
+- [x] Couche hors chaîne MySQL — conteneur, schéma, huit points d'accès.
+      12 contrôles de `npm run verify:api` passés contre la base et la chaîne
+      réelles : rejeu d'aléa, domaine EIP-4361 usurpé, cookie falsifié, écriture
+      refusée à un non-propriétaire, cloisonnement des lectures.
+- [x] Authentification par signature de portefeuille (EIP-4361) — écran de
+      signature à l'entrée, session scellée par HMAC, rôle lu sur la chaîne
+- [x] Bascule du répertoire du `localStorage` vers l'API, ancien magasin supprimé
+- [x] B10 modifier l'identité hors chaîne — écrit en base, accents compris
+      (`Développeur` relu en `44C3A976…`, 11 caractères pour 12 octets)
 
 ## To Do
 
 ### Écrans jamais rendus
 - [ ] B5 retirer un salarié — écran atteint, opération jamais exécutée
 - [ ] D3/D4 — succès et échec d'une transaction
+
+### Exigences du cahier des charges encore ouvertes
+- [ ] **SF-08** éditer et télécharger les bulletins d'un cycle (employeur).
+      SF-12 (téléchargement par le salarié) est fait depuis C3.
+- [ ] Consigner l'émission au registre `BulletinPaie` depuis l'interface —
+      la table et le point d'accès existent, rien ne les alimente encore
+
+### Mémoire, à reprendre une fois la recette close
+- [ ] Régénérer `Diagrammes/Modèle de données hors chaîne/` d'après le DDL
+- [ ] 3.3.4 et 4.2.2 : décrire le schéma réellement déployé (quatre amendements)
+- [ ] 5.5 : la section affirme que l'application web n'est pas réalisée
+- [ ] CONCLUSION GÉNÉRALE : elle range « la remise d'un bulletin » parmi les
+      trois exigences satisfaites, **sans la réserve** que portent le 6.3.2 et le
+      tableau de conformité. À reprendre, dans un sens ou dans l'autre.
+- [ ] 6.3.2 : verser l'argument de B10 — l'immutabilité prive de rectification
+      les montants versés, non les identités, qui vivent hors chaîne
 
 ### Reste à faire
 - [ ] Décodage des 15 erreurs personnalisées en messages français (partiel)
