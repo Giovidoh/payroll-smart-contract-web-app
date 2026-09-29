@@ -1,26 +1,24 @@
 "use client";
 
-import { toast } from "sonner";
 import {
   formatToken,
-  formatCountdown,
   formatDateTime,
   shortAddress,
 } from "@/lib/format";
 import { PAYROLL_ADDRESS } from "@/lib/contracts/config";
-import {
-  Panneau,
-  Kpi,
-  Bandeau,
-  Tableau,
-  Th,
-  Td,
-  Vide,
-  Echec,
-  Squelette,
-  LienAdresse,
-  LienTransaction,
-} from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { StatCard } from "@/components/stat-card";
+import { Alert } from "@/components/ui/alert";
+import { Table, TableHead, TableCell, TableHeader, TableBody, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
+import { LogsReadError } from "../LogsReadError";
+import { SkeletonRows } from "@/components/skeleton-rows";
+import { AddressLink, TxLink } from "@/components/explorer-link";
+import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/copy-button";
+import { DetailList, DetailItem } from "@/components/detail-list";
+import { Hint } from "@/components/hint";
+import { CountdownFigure } from "../CountdownFigure";
 import { useMonEspace } from "../../hooks/use-mon-espace";
 import { useEcheance } from "../../hooks/use-echeance";
 import { useFiches } from "../../hooks/use-directory";
@@ -37,23 +35,23 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
   return (
     <>
       {echue && (
-        <Bandeau ton="warn" titre="La paie est exigible et n'a pas été exécutée.">
+        <Alert tone="warn" title="La paie est exigible et n'a pas été exécutée.">
           Le contrat ne connaît pas le retard : passé l&apos;échéance, il attend
           simplement qu&apos;une adresse déclenche le versement. Vous pouvez le faire
           vous-même.
-        </Bandeau>
+        </Alert>
       )}
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <Kpi
+        <StatCard
           label="Mon salaire par cycle"
-          valeur={salaire !== undefined ? formatToken(salaire, false) : "…"}
-          indice="tel qu'inscrit en chaîne"
+          value={salaire !== undefined ? formatToken(salaire, false) : "…"}
+          hint="tel qu'inscrit en chaîne"
         />
-        <Kpi
+        <StatCard
           label="Versements reçus"
-          valeur={enCours ? "…" : echecJournaux ? "?" : versements.length}
-          indice={
+          value={enCours ? "…" : echecJournaux ? "?" : versements.length}
+          hint={
             enCours
               ? "lecture des journaux…"
               : echecJournaux
@@ -61,61 +59,50 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
                 : "depuis mon inscription"
           }
         />
-        <Kpi
+        <StatCard
           label="Total perçu"
-          valeur={enCours ? "…" : echecJournaux ? "?" : formatToken(totalPercu, false)}
-          indice={echecJournaux ? "journaux illisibles" : "cumul des versements"}
+          value={enCours ? "…" : echecJournaux ? "?" : formatToken(totalPercu, false)}
+          hint={echecJournaux ? "journaux illisibles" : "cumul des versements"}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panneau titre="Prochain versement">
-          <div className="font-mono text-[28px] font-medium tracking-[-0.02em]">
-            {restant === undefined
-              ? "…"
-              : (formatCountdown(restant) ?? "exigible maintenant")}
-          </div>
+        <Panel title="Prochain versement">
+          <CountdownFigure remaining={restant} whenDue="exigible maintenant" />
           <p className="mt-1.5 text-ink-2">
             {prochaine !== undefined && <>Éligible le {formatDateTime(prochaine)}</>}
           </p>
-          <div className="mt-4 flex justify-between border-t border-line pt-3">
-            <span className="text-ink-2">Montant attendu</span>
-            <span className="font-mono">
+          <DetailList className="mt-4 border-t border-line pt-3">
+            <DetailItem label="Montant attendu">
               {salaire !== undefined ? formatToken(salaire) : "…"}
-            </span>
-          </div>
-          <p className="mt-3 text-[11px] text-ink-3">
+            </DetailItem>
+          </DetailList>
+          <Hint className="mt-3">
             Si la paie n&apos;est pas exécutée alors qu&apos;elle est due et que les
             fonds sont là, vous pouvez la{" "}
-            <button
-              onClick={() => onNaviguer("C5")}
-              className="text-primary underline underline-offset-2"
-            >
+            <Button variant="link" size="none" onClick={() => onNaviguer("C5")}>
               déclencher vous-même
-            </button>
+            </Button>
             .
-          </p>
-        </Panneau>
+          </Hint>
+        </Panel>
 
-        <Panneau
-          titre="Derniers versements reçus"
+        <Panel
+          title="Derniers versements reçus"
           action={
-            <button
-              onClick={() => onNaviguer("C2")}
-              className="rounded-sm border border-line-2 bg-card px-2 py-1 text-xs hover:bg-surface-2"
-            >
+            <Button variant="secondary" size="sm" onClick={() => onNaviguer("C2")}>
               Tout voir
-            </button>
+            </Button>
           }
         >
           {enCours ? (
-            <Squelette lignes={4} />
+            <SkeletonRows rows={4} />
           ) : echecJournaux ? (
-            <Echec />
+            <LogsReadError />
           ) : recents.length === 0 ? (
-            <Vide titre="Aucun versement">
+            <EmptyState title="Aucun versement">
               Votre première paie apparaîtra ici dès qu&apos;elle sera exécutée.
-            </Vide>
+            </EmptyState>
           ) : (
             <div className="grid gap-1.5">
               {recents.map((v) => (
@@ -125,12 +112,12 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
                 >
                   <span className="font-mono text-ink-2">{formatDateTime(v.date)}</span>
                   <span className="font-mono">{formatToken(v.montant!)}</span>
-                  <LienTransaction hash={v.hash} />
+                  <TxLink hash={v.hash} />
                 </div>
               ))}
             </div>
           )}
-        </Panneau>
+        </Panel>
       </div>
     </>
   );
@@ -142,50 +129,50 @@ export function MesVersements() {
   const { versements, totalPercu, enCours, echecJournaux } = useMonEspace();
 
   return (
-    <Panneau titre={`Mes versements (${versements.length})`}>
+    <Panel title={`Mes versements (${versements.length})`}>
       {enCours ? (
-        <Squelette lignes={6} />
+        <SkeletonRows rows={6} />
       ) : echecJournaux ? (
-        <Echec />
+        <LogsReadError />
       ) : versements.length === 0 ? (
-        <Vide titre="Aucun versement pour l'instant">
+        <EmptyState title="Aucun versement pour l'instant">
           Votre première paie apparaîtra ici dès qu&apos;elle sera exécutée. Le compte à
           rebours est visible sur votre vue d&apos;ensemble.
-        </Vide>
+        </EmptyState>
       ) : (
-        <Tableau>
-          <thead>
-            <tr>
-              <Th>Date</Th>
-              <Th align="right">Montant</Th>
-              <Th align="right">Transaction</Th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead align="right">Montant</TableHead>
+              <TableHead align="right">Transaction</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {versements.map((v) => (
-              <tr key={`${v.hash}-${v.logIndex}`}>
-                <Td className="whitespace-nowrap font-mono text-ink-2">
+              <TableRow key={`${v.hash}-${v.logIndex}`}>
+                <TableCell className="whitespace-nowrap font-mono text-ink-2">
                   {formatDateTime(v.date)}
-                </Td>
-                <Td align="right" className="font-mono">
+                </TableCell>
+                <TableCell align="right" className="font-mono">
                   {formatToken(v.montant!)}
-                </Td>
-                <Td align="right">
-                  <LienTransaction hash={v.hash} />
-                </Td>
-              </tr>
+                </TableCell>
+                <TableCell align="right">
+                  <TxLink hash={v.hash} />
+                </TableCell>
+              </TableRow>
             ))}
-            <tr>
-              <Td className="font-semibold">Total perçu</Td>
-              <Td align="right" className="font-mono font-semibold">
+            <TableRow>
+              <TableCell className="font-semibold">Total perçu</TableCell>
+              <TableCell align="right" className="font-mono font-semibold">
                 {formatToken(totalPercu)}
-              </Td>
-              <Td>{null}</Td>
-            </tr>
-          </tbody>
-        </Tableau>
+              </TableCell>
+              <TableCell>{null}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
       )}
-    </Panneau>
+    </Panel>
   );
 }
 
@@ -198,26 +185,25 @@ export function MonProfil() {
 
   return (
     <>
-      <Panneau titre="Identité — hors chaîne, lecture seule">
-        <dl className="grid gap-1.5">
-          <Ligne label="Prénom" valeur={fiche?.prenom || "non renseigné"} />
-          <Ligne label="Nom" valeur={fiche?.nom || "non renseigné"} />
-          <Ligne label="Poste" valeur={fiche?.poste || "non renseigné"} />
-          <Ligne label="Adresse électronique" valeur={fiche?.email || "non renseignée"} />
-          <Ligne label="Date d'embauche" valeur={fiche?.embauche || "non renseignée"} />
-          <Ligne
-            label="Salaire par cycle"
-            valeur={salaire !== undefined ? formatToken(salaire) : "…"}
-          />
-        </dl>
-        <p className="mt-3 text-[11px] text-ink-3">
+      <Panel title="Identité — hors chaîne, lecture seule">
+        <DetailList>
+          <DetailItem ruled mono={false} label="Prénom">{fiche?.prenom || "non renseigné"}</DetailItem>
+          <DetailItem ruled mono={false} label="Nom">{fiche?.nom || "non renseigné"}</DetailItem>
+          <DetailItem ruled mono={false} label="Poste">{fiche?.poste || "non renseigné"}</DetailItem>
+          <DetailItem ruled mono={false} label="Adresse électronique">{fiche?.email || "non renseignée"}</DetailItem>
+          <DetailItem ruled mono={false} label="Date d'embauche">{fiche?.embauche || "non renseignée"}</DetailItem>
+          <DetailItem ruled mono={false} label="Salaire par cycle">
+            {salaire !== undefined ? formatToken(salaire) : "…"}
+            </DetailItem>
+        </DetailList>
+        <Hint className="mt-3">
           Pour toute correction d&apos;identité, adressez-vous à l&apos;employeur : ces
           champs vivent hors de la chaîne. Seul le salaire, lui, y est inscrit — et
           reste donc immuable une fois versé.
-        </p>
-      </Panneau>
+        </Hint>
+      </Panel>
 
-      <Panneau titre="Confidentialité">
+      <Panel title="Confidentialité">
         <p className="text-ink-2">
           Votre fiche n&apos;est consultable que par deux adresses : celle de
           l&apos;employeur, propriétaire du contrat, et la vôtre. Toute autre adresse
@@ -235,31 +221,17 @@ export function MonProfil() {
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-ink-2">Mon adresse enregistrée</span>
           <span className="font-mono">{adresse ? shortAddress(adresse) : "…"}</span>
-          <button
-            className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
-            onClick={async () => {
-              await navigator.clipboard.writeText(adresse!);
-              toast.success("Adresse copiée");
-            }}
-          >
+          <CopyButton value={adresse} toastMessage="Adresse copiée" variant="secondary" size="xs">
             Copier
-          </button>
-          {adresse && <LienAdresse adresse={adresse} />}
+          </CopyButton>
+          {adresse && <AddressLink address={adresse} />}
         </div>
 
-        <p className="mt-3 text-[11px] text-ink-3">
-          Contrat de paie : <LienAdresse adresse={PAYROLL_ADDRESS} />
-        </p>
-      </Panneau>
+        <Hint className="mt-3">
+          Contrat de paie : <AddressLink address={PAYROLL_ADDRESS} />
+        </Hint>
+      </Panel>
     </>
   );
 }
 
-function Ligne({ label, valeur }: { label: string; valeur: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap justify-between gap-2 border-b border-line pb-1.5 last:border-0">
-      <dt className="text-ink-2">{label}</dt>
-      <dd>{valeur}</dd>
-    </div>
-  );
-}

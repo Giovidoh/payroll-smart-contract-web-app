@@ -1,12 +1,10 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { LienTransaction } from "./ui-kit";
+import { Button } from "@/components/ui/button";
+import { CardHeader } from "@/components/ui/card";
+import { TxLink } from "@/components/explorer-link";
 import type { EtatTx, EtapeTx, Operation } from "../hooks/use-transaction";
-
-const bouton = "rounded-sm border px-3.5 py-2 text-left transition-colors disabled:opacity-50";
-const principal = `${bouton} border-primary bg-primary font-medium text-primary-foreground hover:bg-primary/90`;
-const secondaire = `${bouton} border-line-2 bg-card hover:bg-surface-2`;
 
 const CODES: Record<EtatTx["phase"], string> = {
   repos: "",
@@ -57,12 +55,12 @@ export default function DialogueTransaction({
         className="w-full max-w-[468px] border border-line-2 bg-card shadow-[0_8px_28px_rgba(0,0,0,.18)]"
         onClick={(e) => e.stopPropagation()}
       >
-        <header className="flex items-center justify-between border-b-2 border-rule px-4 py-3">
+        <CardHeader>
           <span className="font-semibold">{operation.titre}</span>
           <span className="font-mono text-[11px] text-ink-3">
             {operation.code} · {CODES[etat.phase]}
           </span>
-        </header>
+        </CardHeader>
 
         {etapes && etapes.length > 0 && (
           <div className="grid gap-2 border-b border-line px-4 py-3">
@@ -122,7 +120,7 @@ export default function DialogueTransaction({
               <div className="mb-1 text-[11px] text-ink-2">
                 Hachage de transaction
               </div>
-              <LienTransaction hash={etat.hash} />
+              <TxLink hash={etat.hash} />
             </div>
           )}
         </div>
@@ -130,12 +128,10 @@ export default function DialogueTransaction({
         <footer className="flex flex-wrap gap-2 border-t border-line px-4 py-3">
           {etat.phase === "confirmation" && (
             <>
-              <button className={principal} onClick={onConfirmer}>
-                Signer et envoyer
-              </button>
-              <button className={secondaire} onClick={onFermer}>
+              <Button onClick={onConfirmer}>Signer et envoyer</Button>
+              <Button variant="secondary" onClick={onFermer}>
                 Annuler
-              </button>
+              </Button>
             </>
           )}
           {enCours && (
@@ -146,9 +142,7 @@ export default function DialogueTransaction({
             </span>
           )}
           {termine && (
-            <button className={principal} onClick={onFermer}>
-              Fermer
-            </button>
+            <Button onClick={onFermer}>Fermer</Button>
           )}
         </footer>
       </div>

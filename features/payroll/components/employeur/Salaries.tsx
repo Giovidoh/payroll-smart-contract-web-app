@@ -3,18 +3,26 @@
 import { useMemo, useState } from "react";
 import { isAddress, type Address } from "viem";
 import { toast } from "sonner";
-import { formatToken, parseToken, shortAddress } from "@/lib/format";
+import { formatToken, parseTokenOrNull, shortAddress } from "@/lib/format";
 import { TOKEN_SYMBOL } from "@/lib/contracts/config";
+import { Panel } from "@/components/panel";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
-  Panneau,
-  Tableau,
-  Th,
-  Td,
-  Vide,
-  Squelette,
-  LienAdresse,
-  Requis,
-} from "../ui-kit";
+  Table,
+  TableHead,
+  TableCell,
+  TableHeader,
+  TableBody,
+  TableRow,
+} from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
+import { SkeletonRows } from "@/components/skeleton-rows";
+import { AddressLink } from "@/components/explorer-link";
+import { DetailList, DetailItem } from "@/components/detail-list";
+import { FormField, FieldError, RequiredLegend } from "@/components/form-field";
+import { Hint } from "@/components/hint";
 import { useSalaries } from "../../hooks/use-payroll";
 import {
   useFiches,
@@ -24,13 +32,6 @@ import {
 } from "../../hooks/use-directory";
 import RepriseLocale from "./RepriseLocale";
 import type { Operation } from "../../hooks/use-transaction";
-
-const champ =
-  "w-full rounded-sm border border-line-2 bg-card px-2.5 py-2 outline-none focus:border-primary";
-const principal =
-  "rounded-sm border border-primary bg-primary px-3.5 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50";
-const secondaire =
-  "rounded-sm border border-line-2 bg-card px-3 py-2 hover:bg-surface-2";
 
 type Panneaux =
   | null
@@ -85,28 +86,22 @@ export default function Salaries({
 
   return (
     <>
-      <Panneau>
+      <Panel>
         <div className="flex flex-wrap items-center gap-2">
-          <input
+          <Input
             value={recherche}
             onChange={(e) => setRecherche(e.target.value)}
             placeholder="Rechercher un nom, un poste, une adresse"
-            className={`${champ} min-w-[220px] flex-1`}
+            className="min-w-[220px] flex-1"
           />
-          <select
-            value={tri}
-            onChange={(e) => setTri(e.target.value as typeof tri)}
-            className="rounded-sm border border-line-2 bg-card px-2.5 py-2"
-          >
+          <NativeSelect value={tri} onChange={(e) => setTri(e.target.value as typeof tri)}>
             <option value="salaire">Trier par salaire</option>
             <option value="nom">Trier par nom</option>
             <option value="adresse">Trier par adresse</option>
-          </select>
-          <button className={principal} onClick={() => setPanneau({ mode: "ajout" })}>
-            Ajouter un salarié
-          </button>
+          </NativeSelect>
+          <Button onClick={() => setPanneau({ mode: "ajout" })}>Ajouter un salarié</Button>
         </div>
-      </Panneau>
+      </Panel>
 
       <RepriseLocale />
 
@@ -148,75 +143,97 @@ export default function Salaries({
         />
       )}
 
-      <Panneau titre={`Salariés inscrits (${lignes.length})`}>
+      <Panel title={`Salariés inscrits (${lignes.length})`}>
         {isLoading ? (
-          <Squelette lignes={6} />
+          <SkeletonRows rows={6} />
         ) : lignes.length === 0 ? (
-          <Vide titre="Aucun salarié inscrit">
+          <EmptyState title="Aucun salarié inscrit">
             Ajoutez une première adresse pour que la paie ait des bénéficiaires. Tant
             que la liste est vide, la masse salariale est nulle et une exécution ne
             verserait rien.
-          </Vide>
+          </EmptyState>
         ) : (
-          <Tableau>
-            <thead>
-              <tr>
-                <Th>Salarié</Th>
-                <Th>Poste</Th>
-                <Th>Adresse</Th>
-                <Th align="right">Salaire</Th>
-                <Th align="right">Actions</Th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Salarié</TableHead>
+                <TableHead>Poste</TableHead>
+                <TableHead>Adresse</TableHead>
+                <TableHead align="right">Salaire</TableHead>
+                <TableHead align="right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {lignes.map((l) => (
-                <tr key={l.adresse}>
-                  <Td className="font-medium">{l.nom}</Td>
-                  <Td className="text-ink-2">{l.poste}</Td>
-                  <Td>
-                    <LienAdresse adresse={l.adresse} />
-                  </Td>
-                  <Td align="right" className="whitespace-nowrap font-mono">
+                <TableRow key={l.adresse}>
+                  <TableCell className="font-medium">{l.nom}</TableCell>
+                  <TableCell className="text-ink-2">{l.poste}</TableCell>
+                  <TableCell>
+                    <AddressLink address={l.adresse} />
+                  </TableCell>
+                  <TableCell align="right" className="whitespace-nowrap font-mono">
                     {formatToken(l.salaire)}
-                  </Td>
-                  <Td align="right">
+                  </TableCell>
+                  <TableCell align="right">
                     <div className="flex justify-end gap-1.5">
-                      <button
-                        className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={() => setPanneau({ mode: "identite", adresse: l.adresse })}
                       >
                         Identité
-                      </button>
-                      <button
-                        className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={() => setPanneau({ mode: "salaire", adresse: l.adresse })}
                       >
                         Salaire
-                      </button>
-                      <button
-                        className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] text-err hover:bg-surface-2"
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        className="text-err"
                         onClick={() => setPanneau({ mode: "retrait", adresse: l.adresse })}
                       >
                         Retirer
-                      </button>
+                      </Button>
                     </div>
-                  </Td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-              <tr>
-                <Td className="font-semibold">Masse salariale</Td>
-                <Td>{null}</Td>
-                <Td>{null}</Td>
-                <Td align="right" className="font-mono font-semibold">
+              <TableRow>
+                <TableCell className="font-semibold">Masse salariale</TableCell>
+                <TableCell>{null}</TableCell>
+                <TableCell>{null}</TableCell>
+                <TableCell align="right" className="font-mono font-semibold">
                   {formatToken(total)}
-                </Td>
-                <Td>{null}</Td>
-              </tr>
-            </tbody>
-          </Tableau>
+                </TableCell>
+                <TableCell>{null}</TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         )}
-      </Panneau>
+      </Panel>
     </>
+  );
+}
+
+/** Boutons de pied de formulaire : l'action, puis l'abandon. */
+function ActionsFormulaire({
+  children,
+  onAnnuler,
+}: {
+  children: React.ReactNode;
+  onAnnuler: () => void;
+}) {
+  return (
+    <div className="mt-4 flex gap-2">
+      {children}
+      <Button variant="secondary" className="px-3" onClick={onAnnuler}>
+        Annuler
+      </Button>
+    </div>
   );
 }
 
@@ -250,98 +267,61 @@ function PanneauAjout({
 
   const adresseValide = isAddress(adresse);
   const dejaLa = adresseValide && dejaInscrites.has(adresse.toLowerCase());
-
-  let montant: bigint | null = null;
-  try {
-    montant = salaire ? parseToken(salaire) : null;
-  } catch {
-    montant = null;
-  }
+  const montant = parseTokenOrNull(salaire);
 
   const pret = adresseValide && !dejaLa && montant !== null && montant > 0n;
 
   return (
-    <Panneau titre="Ajouter un salarié">
+    <Panel title="Ajouter un salarié">
       <p className="mb-4 text-ink-2">
         Seuls l&apos;adresse et le salaire sont inscrits en chaîne. Le nom, le poste et
         l&apos;adresse électronique restent dans ce navigateur : les porter en chaîne
         rendrait publique la rémunération de personnes nommées.
       </p>
-      <p className="mb-4 text-[11px] text-ink-3">
-        Les champs suivis d&apos;un <span className="text-err">*</span> sont
-        obligatoires ; les autres sont facultatifs.
-      </p>
+      <RequiredLegend />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1 sm:col-span-2">
-          <span className="text-ink-2">
-            Adresse du portefeuille
-            <Requis />
-          </span>
-          <input
+        <FormField label="Adresse du portefeuille" required className="sm:col-span-2">
+          <Input
             value={adresse}
             onChange={(e) => setAdresse(e.target.value)}
             placeholder="0x…"
-            className={`${champ} font-mono`}
+            className="font-mono"
           />
-          {adresse && !adresseValide && (
-            <span className="text-err">Adresse invalide.</span>
-          )}
-          {dejaLa && (
-            <span className="text-err">Cette adresse est déjà inscrite.</span>
-          )}
-        </label>
+          {adresse && !adresseValide && <FieldError>Adresse invalide.</FieldError>}
+          {dejaLa && <FieldError>Cette adresse est déjà inscrite.</FieldError>}
+        </FormField>
 
-        <label className="grid gap-1">
-          <span className="text-ink-2">
-            Salaire par cycle ({TOKEN_SYMBOL})
-            <Requis />
-          </span>
-          <input
+        <FormField label={`Salaire par cycle (${TOKEN_SYMBOL})`} required>
+          <Input
             value={salaire}
             onChange={(e) => setSalaire(e.target.value)}
             inputMode="decimal"
             placeholder="1250,00"
-            className={`${champ} font-mono`}
+            className="font-mono"
           />
-        </label>
+        </FormField>
 
-        <label className="grid gap-1">
-          <span className="text-ink-2">Date d&apos;embauche</span>
-          <input
-            type="date"
-            value={embauche}
-            onChange={(e) => setEmbauche(e.target.value)}
-            className={champ}
-          />
-        </label>
+        <FormField label="Date d'embauche">
+          <Input type="date" value={embauche} onChange={(e) => setEmbauche(e.target.value)} />
+        </FormField>
 
-        <label className="grid gap-1">
-          <span className="text-ink-2">Prénom</span>
-          <input value={prenom} onChange={(e) => setPrenom(e.target.value)} className={champ} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-ink-2">Nom</span>
-          <input value={nom} onChange={(e) => setNom(e.target.value)} className={champ} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-ink-2">Poste</span>
-          <input value={poste} onChange={(e) => setPoste(e.target.value)} className={champ} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-ink-2">Adresse électronique</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={champ}
-          />
-        </label>
+        <FormField label="Prénom">
+          <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+        </FormField>
+        <FormField label="Nom">
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} />
+        </FormField>
+        <FormField label="Poste">
+          <Input value={poste} onChange={(e) => setPoste(e.target.value)} />
+        </FormField>
+        <FormField label="Adresse électronique">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </FormField>
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <button
-          className={principal}
+      <ActionsFormulaire onAnnuler={onFermer}>
+        <Button
           disabled={!pret}
           onClick={() => {
             onDemander({
@@ -368,12 +348,9 @@ function PanneauAjout({
           }}
         >
           Inscrire le salarié
-        </button>
-        <button className={secondaire} onClick={onFermer}>
-          Annuler
-        </button>
-      </div>
-    </Panneau>
+        </Button>
+      </ActionsFormulaire>
+    </Panel>
   );
 }
 
@@ -393,47 +370,35 @@ function PanneauSalaire({
   onDemander: (o: Operation) => void;
 }) {
   const [saisie, setSaisie] = useState("");
-
-  let montant: bigint | null = null;
-  try {
-    montant = saisie ? parseToken(saisie) : null;
-  } catch {
-    montant = null;
-  }
+  const montant = parseTokenOrNull(saisie);
 
   const inchange = montant !== null && actuel !== undefined && montant === actuel;
   const pret = montant !== null && montant > 0n && !inchange;
 
   return (
-    <Panneau titre={`Modifier le salaire — ${nom}`}>
-      <div className="mb-3 grid gap-1.5">
-        <div className="flex justify-between">
-          <span className="text-ink-2">Salaire actuel</span>
-          <span className="font-mono">{actuel !== undefined ? formatToken(actuel) : "…"}</span>
-        </div>
-      </div>
+    <Panel title={`Modifier le salaire — ${nom}`}>
+      <DetailList className="mb-3">
+        <DetailItem label="Salaire actuel">
+          {actuel !== undefined ? formatToken(actuel) : "…"}
+        </DetailItem>
+      </DetailList>
 
-      <label className="grid gap-1">
-        <span className="text-ink-2">
-          Nouveau salaire ({TOKEN_SYMBOL})
-          <Requis />
-        </span>
-        <input
+      <FormField label={`Nouveau salaire (${TOKEN_SYMBOL})`} required>
+        <Input
           value={saisie}
           onChange={(e) => setSaisie(e.target.value)}
           inputMode="decimal"
-          className={`${champ} font-mono`}
+          className="font-mono"
         />
-      </label>
+      </FormField>
       {inchange && (
-        <p className="mt-1 text-err">
+        <FieldError className="mt-1">
           Identique au salaire actuel : le contrat rejetterait l&apos;opération.
-        </p>
+        </FieldError>
       )}
 
-      <div className="mt-4 flex gap-2">
-        <button
-          className={principal}
+      <ActionsFormulaire onAnnuler={onFermer}>
+        <Button
           disabled={!pret}
           onClick={() => {
             onDemander({
@@ -457,12 +422,9 @@ function PanneauSalaire({
           }}
         >
           Enregistrer le nouveau salaire
-        </button>
-        <button className={secondaire} onClick={onFermer}>
-          Annuler
-        </button>
-      </div>
-    </Panneau>
+        </Button>
+      </ActionsFormulaire>
+    </Panel>
   );
 }
 
@@ -485,7 +447,7 @@ function PanneauRetrait({
   const pret = confirmation.trim().toUpperCase() === "RETIRER";
 
   return (
-    <Panneau titre={`Retirer un salarié — ${nom}`}>
+    <Panel title={`Retirer un salarié — ${nom}`}>
       <p className="mb-3 text-ink-2">
         Le retrait est définitif et prend effet immédiatement : dès la prochaine
         exécution, cette adresse ne recevra plus rien. Les versements passés restent
@@ -498,21 +460,20 @@ function PanneauRetrait({
         signature, rien n&apos;est perdu.
       </p>
 
-      <label className="grid gap-1">
-        <span className="text-ink-2">
-          Saisissez <span className="font-mono">RETIRER</span> pour confirmer
-          <Requis />
-        </span>
-        <input
-          value={confirmation}
-          onChange={(e) => setConfirmation(e.target.value)}
-          className={champ}
-        />
-      </label>
+      <FormField
+        label={
+          <>
+            Saisissez <span className="font-mono">RETIRER</span> pour confirmer
+          </>
+        }
+        required
+      >
+        <Input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
+      </FormField>
 
-      <div className="mt-4 flex gap-2">
-        <button
-          className="rounded-sm border border-err bg-err px-3.5 py-2 font-medium text-white hover:opacity-90 disabled:opacity-50"
+      <ActionsFormulaire onAnnuler={onFermer}>
+        <Button
+          variant="destructive"
           disabled={!pret}
           onClick={() => {
             onDemander({
@@ -534,12 +495,9 @@ function PanneauRetrait({
           }}
         >
           Retirer définitivement
-        </button>
-        <button className={secondaire} onClick={onFermer}>
-          Annuler
-        </button>
-      </div>
-    </Panneau>
+        </Button>
+      </ActionsFormulaire>
+    </Panel>
   );
 }
 
@@ -579,61 +537,36 @@ function PanneauIdentite({
   const pret = prenom.trim().length > 0 && nom.trim().length > 0;
 
   return (
-    <Panneau titre={fiche ? "Modifier une identité" : "Renseigner une identité"}>
+    <Panel title={fiche ? "Modifier une identité" : "Renseigner une identité"}>
       <p className="mb-1 text-ink-2">
         Ces informations ne sont pas inscrites sur la chaîne et ne demandent
         aucune transaction. Elles servent à nommer le salarié dans
         l&apos;interface et sur ses bulletins de paie.
       </p>
-      <p className="mb-4 font-mono text-[11px] text-ink-3">{adresse}</p>
+      <Hint className="mb-4 font-mono">{adresse}</Hint>
 
-      <p className="mb-4 text-[11px] text-ink-3">
-        Les champs suivis d&apos;un <span className="text-err">*</span> sont
-        obligatoires ; les autres sont facultatifs.
-      </p>
+      <RequiredLegend />
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <label className="grid gap-1">
-          <span className="text-ink-2">
-            Prénom
-            <Requis />
-          </span>
-          <input value={prenom} onChange={(e) => setPrenom(e.target.value)} className={champ} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-ink-2">
-            Nom
-            <Requis />
-          </span>
-          <input value={nom} onChange={(e) => setNom(e.target.value)} className={champ} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-ink-2">Poste</span>
-          <input value={poste} onChange={(e) => setPoste(e.target.value)} className={champ} />
-        </label>
-        <label className="grid gap-1">
-          <span className="text-ink-2">Date d&apos;embauche</span>
-          <input
-            type="date"
-            value={embauche}
-            onChange={(e) => setEmbauche(e.target.value)}
-            className={champ}
-          />
-        </label>
-        <label className="grid gap-1 sm:col-span-2">
-          <span className="text-ink-2">Adresse électronique</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={champ}
-          />
-        </label>
+        <FormField label="Prénom" required>
+          <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+        </FormField>
+        <FormField label="Nom" required>
+          <Input value={nom} onChange={(e) => setNom(e.target.value)} />
+        </FormField>
+        <FormField label="Poste">
+          <Input value={poste} onChange={(e) => setPoste(e.target.value)} />
+        </FormField>
+        <FormField label="Date d'embauche">
+          <Input type="date" value={embauche} onChange={(e) => setEmbauche(e.target.value)} />
+        </FormField>
+        <FormField label="Adresse électronique" className="sm:col-span-2">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </FormField>
       </div>
 
-      <div className="mt-4 flex gap-2">
-        <button
-          className={principal}
+      <ActionsFormulaire onAnnuler={onFermer}>
+        <Button
           disabled={!pret}
           onClick={() => {
             onFiche({
@@ -648,11 +581,8 @@ function PanneauIdentite({
           }}
         >
           Enregistrer
-        </button>
-        <button className={secondaire} onClick={onFermer}>
-          Annuler
-        </button>
-      </div>
-    </Panneau>
+        </Button>
+      </ActionsFormulaire>
+    </Panel>
   );
 }

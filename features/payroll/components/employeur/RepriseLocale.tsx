@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { PAYROLL_ADDRESS } from "@/lib/contracts/config";
-import { Panneau } from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/hint";
 import { useFiches, useEcrireFiche, type Fiche } from "../../hooks/use-directory";
 
 /**
@@ -81,7 +83,7 @@ export default function RepriseLocale() {
   };
 
   return (
-    <Panneau titre="Fiches restées dans ce navigateur">
+    <Panel title="Fiches restées dans ce navigateur">
       <p className="mb-3 text-ink-2">
         {manquantes.length} identité{manquantes.length > 1 ? "s" : ""} enregistrée
         {manquantes.length > 1 ? "s" : ""} sur ce poste ne figure
@@ -100,26 +102,19 @@ export default function RepriseLocale() {
       </ul>
 
       <div className="flex flex-wrap gap-2">
-        <button
-          className="rounded-sm border border-primary bg-primary px-3.5 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-          disabled={enCours}
-          onClick={reprendre}
-        >
+        <Button disabled={enCours} onClick={reprendre}>
           {enCours ? "Transfert…" : "Transférer vers la base"}
-        </button>
-        <button
-          className="rounded-sm border border-line-2 bg-card px-3.5 py-2 hover:bg-surface-2"
-          onClick={oublier}
-        >
+        </Button>
+        <Button variant="secondary" onClick={oublier}>
           Effacer de ce navigateur
-        </button>
+        </Button>
       </div>
 
-      <p className="mt-3 text-[11px] text-ink-3">
+      <Hint className="mt-3">
         Le transfert envoie ces noms vers la base hors chaîne. Rien n&apos;est
         inscrit sur la chaîne : les rémunérations y resteraient publiquement
         lisibles.
-      </p>
-    </Panneau>
+      </Hint>
+    </Panel>
   );
 }

@@ -4,36 +4,27 @@ import { useMemo } from "react";
 import { useAccount } from "wagmi";
 import {
   formatToken,
-  formatCountdown,
   formatDateTime,
   formatInterval,
 } from "@/lib/format";
-import {
-  Panneau,
-  Kpi,
-  Bandeau,
-  Etiquette,
-  Tableau,
-  Th,
-  Td,
-  Vide,
-  Echec,
-  Squelette,
-  LienTransaction,
-} from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { StatCard } from "@/components/stat-card";
+import { Alert } from "@/components/ui/alert";
+import { Table, TableHead, TableCell, TableHeader, TableBody, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
+import { LogsReadError } from "../LogsReadError";
+import { SkeletonRows } from "@/components/skeleton-rows";
+import { TxLink } from "@/components/explorer-link";
 import { useSalaries, useTresorerie } from "../../hooks/use-payroll";
 import { useEcheance } from "../../hooks/use-echeance";
-import { useEvenements, LIBELLES, type Evenement } from "../../hooks/use-events";
+import { Button } from "@/components/ui/button";
+import { DetailList, DetailItem, DetailTotal } from "@/components/detail-list";
+import { Hint } from "@/components/hint";
+import { EventBadge } from "../EventBadge";
+import { CountdownFigure } from "../CountdownFigure";
+import { useEvenements, type Evenement } from "../../hooks/use-events";
 import { useFiches, nomAffiche, type Fiche } from "../../hooks/use-directory";
 import type { Ecran } from "../AppShell";
-
-const TON: Record<string, "ok" | "warn" | "accent" | "neutre"> = {
-  PayrollCompleted: "ok",
-  SalaryPaid: "ok",
-  FundsDeposited: "accent",
-  EmployeeRemoved: "warn",
-  AmountWithdrawn: "warn",
-};
 
 export default function VueEnsemble({
   onNaviguer,
@@ -64,36 +55,36 @@ export default function VueEnsemble({
     <>
       {echue === undefined ? null : echue ? (
         provisionSuffisante ? (
-          <Bandeau ton="ok" titre="La paie est exécutable.">
+          <Alert tone="ok" title="La paie est exécutable.">
             Le garde-temps ne s&apos;y oppose plus et la provision couvre la masse
             salariale.
-          </Bandeau>
+          </Alert>
         ) : (
-          <Bandeau ton="err" titre="La paie est due mais la provision est insuffisante.">
+          <Alert tone="err" title="La paie est due mais la provision est insuffisante.">
             Approvisionnez le contrat avant de l&apos;exécuter.
-          </Bandeau>
+          </Alert>
         )
       ) : (
-        <Bandeau ton="neutre" titre="Paie non encore exigible.">
+        <Alert tone="neutral" title="Paie non encore exigible.">
           Le contrat refusera toute exécution avant l&apos;échéance.
-        </Bandeau>
+        </Alert>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Kpi
+        <StatCard
           label="Effectif inscrit"
-          valeur={effectif}
-          indice={effectif === 0 ? "Aucun salarié" : "salariés en chaîne"}
+          value={effectif}
+          hint={effectif === 0 ? "Aucun salarié" : "salariés en chaîne"}
         />
-        <Kpi
+        <StatCard
           label="Masse salariale"
-          valeur={masse !== undefined ? formatToken(masse, false) : "…"}
-          indice="par cycle"
+          value={masse !== undefined ? formatToken(masse, false) : "…"}
+          hint="par cycle"
         />
-        <Kpi
+        <StatCard
           label="Solde du contrat"
-          valeur={solde !== undefined ? formatToken(solde, false) : "…"}
-          indice={
+          value={solde !== undefined ? formatToken(solde, false) : "…"}
+          hint={
             provisionSuffisante === undefined
               ? undefined
               : provisionSuffisante
@@ -101,10 +92,10 @@ export default function VueEnsemble({
                 : "provision insuffisante"
           }
         />
-        <Kpi
+        <StatCard
           label="Surplus retirable"
-          valeur={surplus !== undefined ? formatToken(surplus, false) : "…"}
-          indice={
+          value={surplus !== undefined ? formatToken(surplus, false) : "…"}
+          hint={
             cyclesReserves !== undefined
               ? `${cyclesReserves} cycles immobilisés`
               : undefined
@@ -113,12 +104,8 @@ export default function VueEnsemble({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Panneau titre="Prochaine paie">
-          <div className="font-mono text-[28px] font-medium tracking-[-0.02em]">
-            {restant === undefined
-              ? "…"
-              : (formatCountdown(restant) ?? "exécutable maintenant")}
-          </div>
+        <Panel title="Prochaine paie">
+          <CountdownFigure remaining={restant} whenDue="exécutable maintenant" />
           <p className="mt-1.5 text-ink-2">
             {prochaine !== undefined && intervalle !== undefined && (
               <>
@@ -128,84 +115,69 @@ export default function VueEnsemble({
             )}
           </p>
 
-          <div className="mt-4 grid gap-1.5 border-t border-line pt-3">
-            <div className="flex justify-between">
-              <span className="text-ink-2">Dernière paie</span>
-              <span className="font-mono">
-                {dernierePaie ? formatDateTime(dernierePaie) : "—"}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-ink-2">Dernier cycle observé</span>
-              <span className="font-mono">
-                {dernierCycle
-                  ? `${dernierCycle.effectif} salariés · ${formatToken(dernierCycle.montant!)}`
-                  : "aucun"}
-              </span>
-            </div>
-          </div>
+          <DetailList className="mt-4 border-t border-line pt-3">
+            <DetailItem label="Dernière paie">
+              {dernierePaie ? formatDateTime(dernierePaie) : "—"}
+            </DetailItem>
+            <DetailItem label="Dernier cycle observé">
+              {dernierCycle
+                ? `${dernierCycle.effectif} salariés · ${formatToken(dernierCycle.montant!)}`
+                : "aucun"}
+            </DetailItem>
+          </DetailList>
 
-          <button
-            onClick={() => onNaviguer("B7")}
-            className="mt-4 w-full rounded-sm border border-primary bg-primary px-3 py-2.5 text-left font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <Button size="lg" block className="mt-4 px-3" onClick={() => onNaviguer("B7")}>
             Préparer l&apos;exécution de la paie
-          </button>
-        </Panneau>
+          </Button>
+        </Panel>
 
-        <Panneau
-          titre="Trésorerie"
+        <Panel
+          title="Trésorerie"
           action={
-            <button
-              onClick={() => onNaviguer("B6")}
-              className="rounded-sm border border-line-2 bg-card px-2 py-1 text-xs hover:bg-surface-2"
-            >
+            <Button variant="secondary" size="sm" onClick={() => onNaviguer("B6")}>
               Gérer
-            </button>
+            </Button>
           }
         >
           <BarreTresorerie solde={solde} reserve={reserve} surplus={surplus} />
-        </Panneau>
+        </Panel>
       </div>
 
-      <Panneau
-        titre="Événements récents"
+      <Panel
+        title="Événements récents"
         action={
-          <button
-            onClick={() => onNaviguer("B8")}
-            className="rounded-sm border border-line-2 bg-card px-2 py-1 text-xs hover:bg-surface-2"
-          >
+          <Button variant="secondary" size="sm" onClick={() => onNaviguer("B8")}>
             Tout l&apos;historique
-          </button>
+          </Button>
         }
       >
         {isLoading ? (
-          <Squelette />
+          <SkeletonRows />
         ) : isError ? (
-          <Echec />
+          <LogsReadError />
         ) : recents.length === 0 ? (
-          <Vide titre="Aucun événement">
+          <EmptyState title="Aucun événement">
             Le contrat n&apos;a encore rien enregistré, ou les journaux consultés ne
             remontent pas jusqu&apos;à son déploiement.
-          </Vide>
+          </EmptyState>
         ) : (
-          <Tableau>
-            <thead>
-              <tr>
-                <Th>Date</Th>
-                <Th>Type</Th>
-                <Th>Détail</Th>
-                <Th align="right">Montant</Th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Détail</TableHead>
+                <TableHead align="right">Montant</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {recents.map((e) => (
                 <LigneEvenement key={`${e.hash}-${e.logIndex}`} e={e} fiches={fiches} />
               ))}
-            </tbody>
-          </Tableau>
+            </TableBody>
+          </Table>
         )}
-      </Panneau>
+      </Panel>
     </>
   );
 }
@@ -225,18 +197,18 @@ function LigneEvenement({
         : "—";
 
   return (
-    <tr>
-      <Td className="whitespace-nowrap font-mono text-ink-2">
+    <TableRow>
+      <TableCell className="whitespace-nowrap font-mono text-ink-2">
         {formatDateTime(e.date)}
-      </Td>
-      <Td>
-        <Etiquette ton={TON[e.type] ?? "neutre"}>{LIBELLES[e.type]}</Etiquette>
-      </Td>
-      <Td className="text-ink-2">{detail}</Td>
-      <Td align="right" className="whitespace-nowrap font-mono">
+      </TableCell>
+      <TableCell>
+        <EventBadge type={e.type} />
+      </TableCell>
+      <TableCell className="text-ink-2">{detail}</TableCell>
+      <TableCell align="right" className="whitespace-nowrap font-mono">
         {e.montant !== undefined ? formatToken(e.montant) : "—"}
-      </Td>
-    </tr>
+      </TableCell>
+    </TableRow>
   );
 }
 
@@ -250,7 +222,7 @@ function BarreTresorerie({
   surplus?: bigint;
 }) {
   if (solde === undefined || reserve === undefined || surplus === undefined) {
-    return <Squelette lignes={3} />;
+    return <SkeletonRows rows={3} />;
   }
 
   const total = solde === 0n ? 1n : solde;
@@ -263,31 +235,38 @@ function BarreTresorerie({
         <div className="flex-1 bg-surface-3" />
       </div>
 
-      <div className="mt-3 grid gap-1.5">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <span className="inline-block size-2.5 bg-primary" />
-            Réserve immobilisée
-          </span>
-          <span className="font-mono">{formatToken(reserve)}</span>
-        </div>
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
-            <span className="inline-block size-2.5 border border-line-2 bg-surface-3" />
-            Surplus retirable
-          </span>
-          <span className="font-mono">{formatToken(surplus)}</span>
-        </div>
-        <div className="flex justify-between border-t border-line pt-1.5 font-semibold">
-          <span>Solde total</span>
-          <span className="font-mono">{formatToken(solde)}</span>
-        </div>
-      </div>
+      <DetailList className="mt-3">
+        <DetailItem
+          className="items-center"
+          label={<Legende pastille="bg-primary">Réserve immobilisée</Legende>}
+        >
+          {formatToken(reserve)}
+        </DetailItem>
+        <DetailItem
+          className="items-center"
+          label={
+            <Legende pastille="border border-line-2 bg-surface-3">Surplus retirable</Legende>
+          }
+        >
+          {formatToken(surplus)}
+        </DetailItem>
+        <DetailTotal label="Solde total">{formatToken(solde)}</DetailTotal>
+      </DetailList>
 
-      <p className="mt-3 text-[11px] text-ink-3">
+      <Hint className="mt-3">
         La réserve n&apos;est pas une écriture comptable : le contrat refuse
         matériellement tout retrait qui l&apos;entamerait, y compris au propriétaire.
-      </p>
+      </Hint>
     </>
+  );
+}
+
+/** Libellé précédé d'une pastille à la couleur de sa part dans la barre. */
+function Legende({ pastille, children }: { pastille: string; children: React.ReactNode }) {
+  return (
+    <span className="flex items-center gap-2 text-foreground">
+      <span className={`inline-block size-2.5 ${pastille}`} />
+      {children}
+    </span>
   );
 }

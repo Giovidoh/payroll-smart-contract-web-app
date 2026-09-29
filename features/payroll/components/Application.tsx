@@ -9,7 +9,7 @@ import AppShell, { type Ecran } from "./AppShell";
 import ConnexionEcran from "./ConnexionEcran";
 import SignatureEcran from "./SignatureEcran";
 import DialogueTransaction from "./DialogueTransaction";
-import { Squelette } from "./ui-kit";
+import { SkeletonRows } from "@/components/skeleton-rows";
 import { useRole } from "../hooks/use-payroll";
 import { useSession } from "../hooks/use-session";
 import { useMonte } from "../hooks/use-monte";
@@ -132,7 +132,7 @@ export default function Application() {
 function Attente({ texte = "Lecture du rôle sur la chaîne…" }: { texte?: string }) {
   return (
     <main className="mx-auto grid max-w-md gap-3 p-10">
-      <Squelette lignes={4} />
+      <SkeletonRows rows={4} />
       <p className="text-ink-2">{texte}</p>
     </main>
   );

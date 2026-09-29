@@ -21,6 +21,16 @@ export function parseToken(saisie: string): bigint {
   return parseUnits(normalise, TOKEN_DECIMALS);
 }
 
+/** Comme `parseToken`, mais une saisie vide ou invalide donne `null` : pour un champ en cours de frappe. */
+export function parseTokenOrNull(saisie: string): bigint | null {
+  if (!saisie) return null;
+  try {
+    return parseToken(saisie);
+  } catch {
+    return null;
+  }
+}
+
 export const shortAddress = (a: string) => `${a.slice(0, 6)}…${a.slice(-4)}`;
 export const shortHash = (h: string) => `${h.slice(0, 8)}…${h.slice(-4)}`;
 

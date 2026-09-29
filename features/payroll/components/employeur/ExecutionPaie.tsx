@@ -5,18 +5,15 @@ import {
   formatCountdown,
   formatDateTime,
 } from "@/lib/format";
-import {
-  Panneau,
-  Bandeau,
-  Tableau,
-  Th,
-  Td,
-  Vide,
-  Echec,
-  Squelette,
-  LienAdresse,
-  LienTransaction,
-} from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { Alert } from "@/components/ui/alert";
+import { Table, TableHead, TableCell, TableHeader, TableBody, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
+import { LogsReadError } from "../LogsReadError";
+import { SkeletonRows } from "@/components/skeleton-rows";
+import { AddressLink, TxLink } from "@/components/explorer-link";
+import { Button } from "@/components/ui/button";
+import { Hint } from "@/components/hint";
 import { useSalaries, useTresorerie } from "../../hooks/use-payroll";
 import { useEcheance } from "../../hooks/use-echeance";
 import { useEvenements } from "../../hooks/use-events";
@@ -45,80 +42,82 @@ export default function ExecutionPaie({
   return (
     <>
       {echue === undefined ? (
-        <Squelette lignes={1} />
+        <SkeletonRows rows={1} />
       ) : !echue ? (
-        <Bandeau ton="warn" titre="Le garde-temps s'y oppose encore.">
+        <Alert tone="warn" title="Le garde-temps s'y oppose encore.">
           Le contrat rejettera toute exécution pendant{" "}
           {restant !== undefined ? formatCountdown(restant) : "…"} — jusqu&apos;au{" "}
           {prochaine !== undefined ? formatDateTime(prochaine) : "…"}.
-        </Bandeau>
+        </Alert>
       ) : effectif === 0 ? (
-        <Bandeau ton="warn" titre="Aucun bénéficiaire.">
+        <Alert tone="warn" title="Aucun bénéficiaire.">
           La liste des salariés est vide : une exécution ne verserait rien.
-        </Bandeau>
+        </Alert>
       ) : !provisionne ? (
-        <Bandeau ton="err" titre="Provision insuffisante.">
+        <Alert tone="err" title="Provision insuffisante.">
           Le contrat détient {solde !== undefined ? formatToken(solde) : "…"} pour une
           masse salariale de {masse !== undefined ? formatToken(masse) : "…"}. Le
           versement est atomique : il échouerait entièrement plutôt que partiellement.
-        </Bandeau>
+        </Alert>
       ) : (
-        <Bandeau ton="ok" titre="Tous les contrôles préalables sont satisfaits.">
+        <Alert tone="ok" title="Tous les contrôles préalables sont satisfaits.">
           L&apos;échéance est passée, l&apos;effectif est non nul et la provision couvre
           la masse salariale.
-        </Bandeau>
+        </Alert>
       )}
 
-      <Panneau titre={`Bénéficiaires de cette exécution (${effectif})`}>
+      <Panel title={`Bénéficiaires de cette exécution (${effectif})`}>
         {isLoading ? (
-          <Squelette lignes={5} />
+          <SkeletonRows rows={5} />
         ) : effectif === 0 ? (
-          <Vide titre="Aucun salarié inscrit" />
+          <EmptyState title="Aucun salarié inscrit" />
         ) : (
-          <Tableau>
-            <thead>
-              <tr>
-                <Th>Salarié</Th>
-                <Th>Adresse</Th>
-                <Th align="right">Montant</Th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Salarié</TableHead>
+                <TableHead>Adresse</TableHead>
+                <TableHead align="right">Montant</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {salaries!.map((e) => (
-                <tr key={e.employeeAddress}>
-                  <Td className="font-medium">
+                <TableRow key={e.employeeAddress}>
+                  <TableCell className="font-medium">
                     {nomAffiche(fiches[e.employeeAddress.toLowerCase()], e.employeeAddress)}
-                  </Td>
-                  <Td>
-                    <LienAdresse adresse={e.employeeAddress} />
-                  </Td>
-                  <Td align="right" className="whitespace-nowrap font-mono">
+                  </TableCell>
+                  <TableCell>
+                    <AddressLink address={e.employeeAddress} />
+                  </TableCell>
+                  <TableCell align="right" className="whitespace-nowrap font-mono">
                     {formatToken(e.salary)}
-                  </Td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-              <tr>
-                <Td className="font-semibold">Total versé</Td>
-                <Td>{null}</Td>
-                <Td align="right" className="font-mono font-semibold">
+              <TableRow>
+                <TableCell className="font-semibold">Total versé</TableCell>
+                <TableCell>{null}</TableCell>
+                <TableCell align="right" className="font-mono font-semibold">
                   {masse !== undefined ? formatToken(masse) : "…"}
-                </Td>
-              </tr>
-              <tr>
-                <Td className="text-ink-2">Solde du contrat après opération</Td>
-                <Td>{null}</Td>
-                <Td align="right" className="font-mono text-ink-2">
+                </TableCell>
+              </TableRow>
+              <TableRow>
+                <TableCell className="text-ink-2">Solde du contrat après opération</TableCell>
+                <TableCell>{null}</TableCell>
+                <TableCell align="right" className="font-mono text-ink-2">
                   {solde !== undefined && masse !== undefined
                     ? formatToken(solde - masse)
                     : "…"}
-                </Td>
-              </tr>
-            </tbody>
-          </Tableau>
+                </TableCell>
+              </TableRow>
+            </TableBody>
+          </Table>
         )}
 
-        <button
-          className="mt-4 w-full rounded-sm border border-primary bg-primary px-3.5 py-2.5 text-left font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+        <Button
+          size="lg"
+          block
+          className="mt-4"
           disabled={!executable}
           onClick={() =>
             onDemander({
@@ -135,52 +134,52 @@ export default function ExecutionPaie({
           }
         >
           Exécuter la paie
-        </button>
+        </Button>
 
-        <p className="mt-2 text-[11px] text-ink-3">
+        <Hint className="mt-2">
           <code className="font-mono">runPayroll()</code> n&apos;est pas réservée au
           propriétaire : n&apos;importe quelle adresse peut la déclencher, y compris
           un salarié ou l&apos;ordonnanceur. Ce que le contrat garantit n&apos;est pas
           <em> qui</em> paie, mais que le versement est conforme.
-        </p>
-      </Panneau>
+        </Hint>
+      </Panel>
 
-      <Panneau titre="Trois dernières exécutions">
+      <Panel title="Trois dernières exécutions">
         {echecJournaux ? (
-          <Echec />
+          <LogsReadError />
         ) : cycles.length === 0 ? (
-          <Vide titre="Aucune exécution observée">
+          <EmptyState title="Aucune exécution observée">
             Aucun cycle de paie n&apos;apparaît dans les journaux consultés.
-          </Vide>
+          </EmptyState>
         ) : (
-          <Tableau>
-            <thead>
-              <tr>
-                <Th>Date</Th>
-                <Th>Bénéficiaires</Th>
-                <Th align="right">Montant</Th>
-                <Th align="right">Transaction</Th>
-              </tr>
-            </thead>
-            <tbody>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Date</TableHead>
+                <TableHead>Bénéficiaires</TableHead>
+                <TableHead align="right">Montant</TableHead>
+                <TableHead align="right">Transaction</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {cycles.map((c) => (
-                <tr key={`${c.hash}-${c.logIndex}`}>
-                  <Td className="whitespace-nowrap font-mono text-ink-2">
+                <TableRow key={`${c.hash}-${c.logIndex}`}>
+                  <TableCell className="whitespace-nowrap font-mono text-ink-2">
                     {formatDateTime(c.date)}
-                  </Td>
-                  <Td>{String(c.effectif)} salariés</Td>
-                  <Td align="right" className="font-mono">
+                  </TableCell>
+                  <TableCell>{String(c.effectif)} salariés</TableCell>
+                  <TableCell align="right" className="font-mono">
                     {c.montant !== undefined ? formatToken(c.montant) : "—"}
-                  </Td>
-                  <Td align="right">
-                    <LienTransaction hash={c.hash} />
-                  </Td>
-                </tr>
+                  </TableCell>
+                  <TableCell align="right">
+                    <TxLink hash={c.hash} />
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </Tableau>
+            </TableBody>
+          </Table>
         )}
-      </Panneau>
+      </Panel>
     </>
   );
 }

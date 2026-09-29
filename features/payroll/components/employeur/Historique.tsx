@@ -2,33 +2,23 @@
 
 import { useMemo, useState } from "react";
 import { formatToken, formatDateTime } from "@/lib/format";
-import {
-  Panneau,
-  Tableau,
-  Th,
-  Td,
-  Vide,
-  Echec,
-  Squelette,
-  Etiquette,
-  LienTransaction,
-} from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { Table, TableHead, TableCell, TableHeader, TableBody, TableRow } from "@/components/ui/table";
+import { EmptyState } from "@/components/empty-state";
+import { LogsReadError } from "../LogsReadError";
+import { SkeletonRows } from "@/components/skeleton-rows";
+import { TxLink } from "@/components/explorer-link";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
+import { EventBadge } from "../EventBadge";
+import { RegisteredMark } from "../RegisteredMark";
 import {
   useEvenements,
-  LIBELLES,
   type TypeEvenement,
   type Evenement,
 } from "../../hooks/use-events";
 import { useFiches, nomAffiche } from "../../hooks/use-directory";
 import { useEmettreBulletin, useRegistre, repere } from "../../hooks/use-bulletins";
-
-const TON: Record<string, "ok" | "warn" | "accent" | "neutre"> = {
-  PayrollCompleted: "ok",
-  SalaryPaid: "ok",
-  FundsDeposited: "accent",
-  EmployeeRemoved: "warn",
-  AmountWithdrawn: "warn",
-};
 
 const FAMILLES: Record<string, TypeEvenement[]> = {
   tout: [],
@@ -83,19 +73,19 @@ export default function Historique() {
   };
 
   return (
-    <Panneau
-      titre={`Historique (${lignes.length})`}
+    <Panel
+      title={`Historique (${lignes.length})`}
       action={
-        <select
+        <NativeSelect
+          size="sm"
           value={famille}
           onChange={(e) => setFamille(e.target.value as keyof typeof FAMILLES)}
-          className="rounded-sm border border-line-2 bg-card px-2 py-1 text-xs"
         >
           <option value="tout">Tout</option>
           <option value="paie">Paie</option>
           <option value="tresorerie">Trésorerie</option>
           <option value="personnel">Personnel</option>
-        </select>
+        </NativeSelect>
       }
     >
       <p className="mb-3 text-ink-2">
@@ -105,58 +95,58 @@ export default function Historique() {
       </p>
 
       {isLoading ? (
-        <Squelette lignes={8} />
+        <SkeletonRows rows={8} />
       ) : isError ? (
-        <Echec />
+        <LogsReadError />
       ) : lignes.length === 0 ? (
-        <Vide titre="Aucun événement">
+        <EmptyState title="Aucun événement">
           Rien à afficher pour ce filtre sur la profondeur de journaux consultée.
-        </Vide>
+        </EmptyState>
       ) : (
-        <Tableau>
-          <thead>
-            <tr>
-              <Th>Date</Th>
-              <Th>Type</Th>
-              <Th>Concerne</Th>
-              <Th align="right">Montant</Th>
-              <Th align="right">Transaction</Th>
-              <Th align="right">Bulletin</Th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Concerne</TableHead>
+              <TableHead align="right">Montant</TableHead>
+              <TableHead align="right">Transaction</TableHead>
+              <TableHead align="right">Bulletin</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
             {lignes.map((e) => (
-              <tr key={`${e.hash}-${e.logIndex}`}>
-                <Td className="whitespace-nowrap font-mono text-ink-2">
+              <TableRow key={`${e.hash}-${e.logIndex}`}>
+                <TableCell className="whitespace-nowrap font-mono text-ink-2">
                   {formatDateTime(e.date)}
-                </Td>
-                <Td>
-                  <Etiquette ton={TON[e.type] ?? "neutre"}>
-                    {LIBELLES[e.type]}
-                  </Etiquette>
-                </Td>
-                <Td className="text-ink-2">
+                </TableCell>
+                <TableCell>
+                  <EventBadge type={e.type} />
+                </TableCell>
+                <TableCell className="text-ink-2">
                   {e.type === "PayrollCompleted"
                     ? `${e.effectif} salariés`
                     : e.sujet
                       ? nomAffiche(fiches[e.sujet.toLowerCase()], e.sujet)
                       : "—"}
-                </Td>
-                <Td align="right" className="whitespace-nowrap font-mono">
+                </TableCell>
+                <TableCell align="right" className="whitespace-nowrap font-mono">
                   {e.montant !== undefined ? formatToken(e.montant) : "—"}
                   {e.type === "SalaryUpdated" && e.ancienMontant !== undefined && (
                     <span className="ml-1 text-[11px] text-ink-3">
                       (avant {formatToken(e.ancienMontant, false)})
                     </span>
                   )}
-                </Td>
-                <Td align="right">
-                  <LienTransaction hash={e.hash} />
-                </Td>
-                <Td align="right" className="whitespace-nowrap">
+                </TableCell>
+                <TableCell align="right">
+                  <TxLink hash={e.hash} />
+                </TableCell>
+                <TableCell align="right" className="whitespace-nowrap">
                   {e.type === "SalaryPaid" ? (
                     <>
-                      <button
+                      <Button
+                        variant="secondary"
+                        size="xs"
                         onClick={() =>
                           emettre({
                             adresse: e.sujet!,
@@ -166,37 +156,31 @@ export default function Historique() {
                             logIndex: e.logIndex,
                           })
                         }
-                        className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
                       >
                         Éditer
-                      </button>
-                      {emis.has(repere(e.hash, e.logIndex)) && (
-                        <span
-                          className="ml-2 text-[11px] text-ink-3"
-                          title="Ce bulletin est inscrit au registre de paie."
-                        >
-                          inscrit
-                        </span>
-                      )}
+                      </Button>
+                      {emis.has(repere(e.hash, e.logIndex)) && <RegisteredMark />}
                     </>
                   ) : e.type === "PayrollCompleted" ? (
-                    <button
+                    <Button
+                      variant="secondary"
+                      size="xs"
                       onClick={() => emettreCycle(e.hash)}
                       disabled={(cycles.get(e.hash.toLowerCase()) ?? []).length === 0}
-                      className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2 disabled:opacity-40"
+                      className="disabled:opacity-40"
                       title="Éditer un bulletin pour chaque salarié payé dans ce cycle."
                     >
                       Tout le cycle
-                    </button>
+                    </Button>
                   ) : (
                     <span className="text-ink-3">—</span>
                   )}
-                </Td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </Tableau>
+          </TableBody>
+        </Table>
       )}
-    </Panneau>
+    </Panel>
   );
 }

@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useAccount, useDisconnect } from "wagmi";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/copy-button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { shortAddress } from "@/lib/format";
 import { CHAIN } from "@/lib/contracts/config";
 import type { Role } from "../hooks/use-payroll";
@@ -55,7 +56,6 @@ export default function AppShell({
 }) {
   const { address } = useAccount();
   const { disconnect } = useDisconnect();
-  const { theme, setTheme } = useTheme();
   const [menuOuvert, setMenuOuvert] = useState(false);
 
   const nav = role === "employeur" ? NAV_EMPLOYEUR : NAV_SALARIE;
@@ -73,13 +73,15 @@ export default function AppShell({
                 {role === "employeur" ? "Espace employeur" : "Espace salarié"}
               </div>
             </div>
-            <button
-              className="rounded-sm border border-line-2 px-2 py-1 md:hidden"
+            <Button
+              variant="outline"
+              size="none"
+              className="px-2 py-1 md:hidden"
               onClick={() => setMenuOuvert((v) => !v)}
               aria-expanded={menuOuvert}
             >
               Menu
-            </button>
+            </Button>
           </div>
 
           <nav
@@ -89,60 +91,52 @@ export default function AppShell({
             )}
           >
             {nav.map((e) => (
-              <button
+              <NavItem
                 key={e}
+                actif={actif === e}
                 onClick={() => {
                   onNaviguer(e);
                   setMenuOuvert(false);
                 }}
-                className={cn(
-                  "rounded-sm border px-2.5 py-1.5 text-left",
-                  actif === e
-                    ? "border-line bg-surface-2 font-semibold shadow-[inset_2px_0_0_var(--primary)]"
-                    : "border-transparent hover:bg-surface-2"
-                )}
               >
                 {TITRES[e]}
-              </button>
+              </NavItem>
             ))}
 
             {role === "salarie" && (
               <>
                 <hr className="my-2 border-line" />
-                <button
+                <NavItem
+                  actif={ecran === "C5"}
                   onClick={() => {
                     onNaviguer("C5");
                     setMenuOuvert(false);
                   }}
-                  className={cn(
-                    "rounded-sm border px-2.5 py-1.5 text-left",
-                    ecran === "C5"
-                      ? "border-line bg-surface-2 font-semibold shadow-[inset_2px_0_0_var(--primary)]"
-                      : "border-transparent hover:bg-surface-2"
-                  )}
                 >
                   {TITRES.C5}
-                </button>
+                </NavItem>
               </>
             )}
 
             <hr className="my-2 border-line" />
-            <button
-              onClick={async () => {
-                await navigator.clipboard.writeText(address!);
-                toast.success("Adresse copiée");
-              }}
+            <CopyButton
+              value={address}
+              toastMessage="Adresse copiée"
+              variant="secondary"
+              size="none"
               title={address}
-              className="rounded-sm border border-line bg-surface-2 px-2 py-1.5 text-left font-mono text-xs"
+              className="border-line bg-surface-2 px-2 py-1.5 text-left font-mono text-xs"
             >
               {address ? shortAddress(address) : ""}
-            </button>
-            <button
+            </CopyButton>
+            <Button
+              variant="ghost"
+              size="none"
               onClick={() => disconnect()}
-              className="rounded-sm px-2 py-1.5 text-left text-xs text-ink-2 hover:bg-surface-2"
+              className="px-2 py-1.5 text-left text-xs text-ink-2"
             >
               Déconnecter
-            </button>
+            </Button>
           </nav>
         </aside>
 
@@ -155,17 +149,36 @@ export default function AppShell({
                 {ecran} · {CHAIN.name}
               </div>
             </div>
-            <button
-              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="rounded-sm border border-line-2 bg-card px-2.5 py-1 text-xs hover:bg-surface-2"
-            >
-              {theme === "dark" ? "Clair" : "Sombre"}
-            </button>
+            <ThemeToggle />
           </header>
 
           <main className="grid gap-4 p-4 md:p-6">{children}</main>
         </div>
       </div>
     </div>
+  );
+}
+
+function NavItem({
+  actif,
+  onClick,
+  children,
+}: {
+  actif: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-sm border px-2.5 py-1.5 text-left",
+        actif
+          ? "border-line bg-surface-2 font-semibold shadow-[inset_2px_0_0_var(--primary)]"
+          : "border-transparent hover:bg-surface-2"
+      )}
+    >
+      {children}
+    </button>
   );
 }

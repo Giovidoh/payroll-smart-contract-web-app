@@ -2,9 +2,15 @@
 
 import { useState } from "react";
 import { useAccount } from "wagmi";
-import { formatToken, parseToken } from "@/lib/format";
+import { formatToken, parseTokenOrNull } from "@/lib/format";
 import { TOKEN_SYMBOL, PAYROLL_ADDRESS } from "@/lib/contracts/config";
-import { Panneau, Requis, Squelette } from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { FormField, FieldError } from "@/components/form-field";
+import { DetailList, DetailItem, DetailTotal } from "@/components/detail-list";
+import { Hint } from "@/components/hint";
+import { SkeletonRows } from "@/components/skeleton-rows";
 import {
   useTresorerie,
   useSoldeJeton,
@@ -12,11 +18,6 @@ import {
   useParametres,
 } from "../../hooks/use-payroll";
 import type { Operation } from "../../hooks/use-transaction";
-
-const champ =
-  "w-full rounded-sm border border-line-2 bg-card px-2.5 py-2 font-mono outline-none focus:border-primary";
-const principal =
-  "rounded-sm border border-primary bg-primary px-3.5 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50";
 
 export default function Tresorerie({
   onDemander,
@@ -41,44 +42,32 @@ export default function Tresorerie({
       />
       <PanneauRetrait surplus={surplus} onDemander={onDemander} />
 
-      <Panneau titre="Composition du solde" className="lg:col-span-2">
+      <Panel title="Composition du solde" className="lg:col-span-2">
         {enCours || solde === undefined ? (
-          <Squelette lignes={4} />
+          <SkeletonRows rows={4} />
         ) : (
-          <div className="grid gap-1.5">
-            <Ligne label="Solde total du contrat" valeur={formatToken(solde)} />
-            <Ligne
-              label={`Réserve immobilisée (${cyclesReserves ?? "…"} cycles)`}
-              valeur={reserve !== undefined ? formatToken(reserve) : "…"}
-            />
-            <Ligne
-              label="Masse salariale d'un cycle"
-              valeur={masse !== undefined ? formatToken(masse) : "…"}
-            />
-            <div className="flex justify-between border-t border-line pt-1.5 font-semibold">
-              <span>Surplus retirable</span>
-              <span className="font-mono">
+          <>
+            <DetailList>
+              <DetailItem label="Solde total du contrat">{formatToken(solde)}</DetailItem>
+              <DetailItem label={`Réserve immobilisée (${cyclesReserves ?? "…"} cycles)`}>
+                {reserve !== undefined ? formatToken(reserve) : "…"}
+              </DetailItem>
+              <DetailItem label="Masse salariale d'un cycle">
+                {masse !== undefined ? formatToken(masse) : "…"}
+              </DetailItem>
+              <DetailTotal label="Surplus retirable">
                 {surplus !== undefined ? formatToken(surplus) : "…"}
-              </span>
-            </div>
-            <p className="mt-2 text-[11px] text-ink-3">
+              </DetailTotal>
+            </DetailList>
+            <Hint className="mt-3.5">
               La réserve couvre {cyclesReserves ?? "plusieurs"} cycles de paie. Le
               contrat refuse tout retrait qui l&apos;entamerait, y compris au
               propriétaire : c&apos;est ce qui fait de la créance de salaire une
               garantie opposable à l&apos;employeur lui-même.
-            </p>
-          </div>
+            </Hint>
+          </>
         )}
-      </Panneau>
-    </div>
-  );
-}
-
-function Ligne({ label, valeur }: { label: string; valeur: string }) {
-  return (
-    <div className="flex justify-between">
-      <span className="text-ink-2">{label}</span>
-      <span className="font-mono">{valeur}</span>
+      </Panel>
     </div>
   );
 }
@@ -95,13 +84,7 @@ function PanneauDepot({
   onDemander: (o: Operation) => void;
 }) {
   const [saisie, setSaisie] = useState("");
-
-  let montant: bigint | null = null;
-  try {
-    montant = saisie ? parseToken(saisie) : null;
-  } catch {
-    montant = null;
-  }
+  const montant = parseTokenOrNull(saisie);
 
   const insuffisant =
     montant !== null && soldeEmployeur !== undefined && montant > soldeEmployeur;
@@ -117,25 +100,21 @@ function PanneauDepot({
     montant !== null && autorisation !== undefined && autorisation >= montant;
 
   return (
-    <Panneau titre="Approvisionner le contrat">
+    <Panel title="Approvisionner le contrat">
       <p className="mb-3 text-ink-2">
         Un dépôt de jeton ERC-20 demande deux transactions successives : autoriser le
         contrat à prélever, puis déposer.
       </p>
 
-      <label className="grid gap-1">
-        <span className="text-ink-2">
-          Montant à déposer ({TOKEN_SYMBOL})
-          <Requis />
-        </span>
-        <input
+      <FormField label={`Montant à déposer (${TOKEN_SYMBOL})`} required>
+        <Input
           value={saisie}
           onChange={(e) => setSaisie(e.target.value)}
           inputMode="decimal"
           placeholder="5000,00"
-          className={champ}
+          className="font-mono"
         />
-      </label>
+      </FormField>
 
       <div className="mt-2 grid gap-1 text-[11px] text-ink-3">
         <span>
@@ -153,13 +132,14 @@ function PanneauDepot({
       </div>
 
       {insuffisant && (
-        <p className="mt-2 text-err">
+        <FieldError className="mt-2">
           Montant supérieur à votre solde en {TOKEN_SYMBOL}.
-        </p>
+        </FieldError>
       )}
 
-      <button
-        className={`${principal} mt-4 w-full text-left`}
+      <Button
+        block
+        className="mt-4"
         disabled={!pret}
         onClick={() =>
           onDemander({
@@ -188,8 +168,8 @@ function PanneauDepot({
         }
       >
         Déposer {montant !== null ? formatToken(montant) : ""}
-      </button>
-    </Panneau>
+      </Button>
+    </Panel>
   );
 }
 
@@ -201,40 +181,31 @@ function PanneauRetrait({
   onDemander: (o: Operation) => void;
 }) {
   const [saisie, setSaisie] = useState("");
-
-  let montant: bigint | null = null;
-  try {
-    montant = saisie ? parseToken(saisie) : null;
-  } catch {
-    montant = null;
-  }
+  const montant = parseTokenOrNull(saisie);
 
   const depasse = montant !== null && surplus !== undefined && montant > surplus;
   const pret = montant !== null && montant > 0n && !depasse;
 
   return (
-    <Panneau titre="Retirer du surplus">
+    <Panel title="Retirer du surplus">
       <p className="mb-3 text-ink-2">
         Seul le surplus est retirable. Le contrat oppose un refus à toute demande qui
         entamerait la réserve, quelle que soit l&apos;adresse qui la formule.
       </p>
 
-      <label className="grid gap-1">
-        <span className="text-ink-2">
-          Montant à retirer ({TOKEN_SYMBOL}) — plafonné au surplus
-          <Requis />
-        </span>
-        <input
+      <FormField label={`Montant à retirer (${TOKEN_SYMBOL}) — plafonné au surplus`} required>
+        <Input
           value={saisie}
           onChange={(e) => setSaisie(e.target.value)}
           inputMode="decimal"
-          className={champ}
+          className="font-mono"
         />
-      </label>
+      </FormField>
 
       <div className="mt-2 flex items-center gap-2">
-        <button
-          className="rounded-sm border border-line-2 bg-card px-2 py-1 text-[11px] hover:bg-surface-2"
+        <Button
+          variant="secondary"
+          size="xs"
           disabled={surplus === undefined || surplus === 0n}
           onClick={() =>
             surplus !== undefined &&
@@ -242,20 +213,21 @@ function PanneauRetrait({
           }
         >
           Maximum
-        </button>
+        </Button>
         <span className="text-[11px] text-ink-3">
           Surplus disponible : {surplus !== undefined ? formatToken(surplus) : "…"}
         </span>
       </div>
 
       {depasse && (
-        <p className="mt-2 text-err">
+        <FieldError className="mt-2">
           Au-delà du surplus : la réserve immobilisée protège les salaires à venir.
-        </p>
+        </FieldError>
       )}
 
-      <button
-        className={`${principal} mt-4 w-full text-left`}
+      <Button
+        block
+        className="mt-4"
         disabled={!pret}
         onClick={() =>
           onDemander({
@@ -269,7 +241,7 @@ function PanneauRetrait({
         }
       >
         Retirer {montant !== null ? formatToken(montant) : ""}
-      </button>
-    </Panneau>
+      </Button>
+    </Panel>
   );
 }

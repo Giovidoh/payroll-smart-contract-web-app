@@ -12,14 +12,16 @@ import {
   CHAIN,
 } from "@/lib/contracts/config";
 import { formatInterval, formatDateTime, shortAddress } from "@/lib/format";
-import { Panneau, LienAdresse, Bandeau, Requis } from "../ui-kit";
+import { Panel } from "@/components/panel";
+import { AddressLink } from "@/components/explorer-link";
+import { Alert } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { DetailList, DetailItem } from "@/components/detail-list";
+import { FormField, FieldError } from "@/components/form-field";
+import { Hint } from "@/components/hint";
 import { useParametres, useOwner } from "../../hooks/use-payroll";
 import type { Operation } from "../../hooks/use-transaction";
-
-const champ =
-  "w-full rounded-sm border border-line-2 bg-card px-2.5 py-2 font-mono outline-none focus:border-primary";
-const principal =
-  "rounded-sm border border-primary bg-primary px-3.5 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50";
 
 export default function Parametres({
   onDemander,
@@ -45,45 +47,41 @@ export default function Parametres({
 
   return (
     <>
-      <Panneau titre="Déploiement — lecture seule">
-        <dl className="grid gap-1.5">
-          <Ligne label="Réseau" valeur={`${CHAIN.name} (id ${CHAIN.id})`} />
-          <Ligne label="Contrat Payroll" valeur={<LienAdresse adresse={PAYROLL_ADDRESS} />} />
-          <Ligne label="Jeton de règlement" valeur={<LienAdresse adresse={TOKEN_ADDRESS} />} />
-          <Ligne label="Symbole / décimales" valeur={`${TOKEN_SYMBOL} · ${TOKEN_DECIMALS}`} />
-          <Ligne
-            label="Intervalle minimal entre deux paies"
-            valeur={intervalle !== undefined ? formatInterval(intervalle) : "…"}
-          />
-          <Ligne
-            label="Cycles de paie réservés"
-            valeur={cyclesReserves !== undefined ? String(cyclesReserves) : "…"}
-          />
-          <Ligne
-            label="Horodatage de la dernière paie"
-            valeur={dernierePaie ? formatDateTime(dernierePaie) : "…"}
-          />
-          <Ligne
-            label="Propriétaire"
-            valeur={owner ? <LienAdresse adresse={owner} /> : "…"}
-          />
-        </dl>
+      <Panel title="Déploiement — lecture seule">
+        <DetailList>
+          <DetailItem ruled label="Réseau">{`${CHAIN.name} (id ${CHAIN.id})`}</DetailItem>
+          <DetailItem ruled label="Contrat Payroll">{<AddressLink address={PAYROLL_ADDRESS} />}</DetailItem>
+          <DetailItem ruled label="Jeton de règlement">{<AddressLink address={TOKEN_ADDRESS} />}</DetailItem>
+          <DetailItem ruled label="Symbole / décimales">{`${TOKEN_SYMBOL} · ${TOKEN_DECIMALS}`}</DetailItem>
+          <DetailItem ruled label="Intervalle minimal entre deux paies">
+            {intervalle !== undefined ? formatInterval(intervalle) : "…"}
+            </DetailItem>
+          <DetailItem ruled label="Cycles de paie réservés">
+            {cyclesReserves !== undefined ? String(cyclesReserves) : "…"}
+            </DetailItem>
+          <DetailItem ruled label="Horodatage de la dernière paie">
+            {dernierePaie ? formatDateTime(dernierePaie) : "…"}
+            </DetailItem>
+          <DetailItem ruled label="Propriétaire">
+            {owner ? <AddressLink address={owner} /> : "…"}
+            </DetailItem>
+        </DetailList>
 
-        <p className="mt-3 text-[11px] text-ink-3">
+        <Hint className="mt-3">
           Ces paramètres sont fixés au déploiement et ne peuvent pas être modifiés
           depuis l&apos;interface : ils sont déclarés <code className="font-mono">immutable</code>{" "}
           dans le contrat. Les changer suppose de déployer un nouveau contrat.
-        </p>
-      </Panneau>
+        </Hint>
+      </Panel>
 
       {transfertEnCours && (
-        <Bandeau ton="warn" titre="Transfert de propriété en attente.">
+        <Alert tone="warn" title="Transfert de propriété en attente.">
           {shortAddress(enAttente!)} a été proposé comme nouveau propriétaire et n&apos;a
           pas encore accepté. Vous restez propriétaire jusque-là.
-        </Bandeau>
+        </Alert>
       )}
 
-      <Panneau titre="Transfert de propriété — deux étapes">
+      <Panel title="Transfert de propriété — deux étapes">
         <p className="mb-3 text-ink-2">
           Le contrat impose un transfert en deux temps : vous proposez une adresse,
           puis son détenteur accepte depuis son propre portefeuille. Une adresse saisie
@@ -91,25 +89,21 @@ export default function Parametres({
           jamais accepter.
         </p>
 
-        <label className="grid gap-1">
-          <span className="text-ink-2">
-            Adresse du nouveau propriétaire
-            <Requis />
-          </span>
-          <input
+        <FormField label="Adresse du nouveau propriétaire" required>
+          <Input
             value={nouveau}
             onChange={(e) => setNouveau(e.target.value)}
             placeholder="0x…"
-            className={champ}
+            className="font-mono"
           />
-        </label>
-        {nouveau && !valide && <p className="mt-1 text-err">Adresse invalide.</p>}
+        </FormField>
+        {nouveau && !valide && <FieldError className="mt-1">Adresse invalide.</FieldError>}
         {memeQueActuel && (
-          <p className="mt-1 text-err">C&apos;est déjà le propriétaire actuel.</p>
+          <FieldError className="mt-1">C&apos;est déjà le propriétaire actuel.</FieldError>
         )}
 
-        <button
-          className={`${principal} mt-4`}
+        <Button
+          className="mt-4"
           disabled={!valide || Boolean(memeQueActuel)}
           onClick={() =>
             onDemander({
@@ -129,23 +123,9 @@ export default function Parametres({
           }
         >
           Proposer le transfert
-        </button>
-      </Panneau>
+        </Button>
+      </Panel>
     </>
   );
 }
 
-function Ligne({
-  label,
-  valeur,
-}: {
-  label: string;
-  valeur: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-wrap justify-between gap-2 border-b border-line pb-1.5 last:border-0">
-      <dt className="text-ink-2">{label}</dt>
-      <dd className="font-mono">{valeur}</dd>
-    </div>
-  );
-}

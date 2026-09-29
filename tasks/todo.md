@@ -38,7 +38,19 @@ la chaîne, pas seulement d'avoir écrit le composant.
 
 ## In Progress
 
-_Rien en cours._
+- [~] **Composants partagés** (branche `refactor/composants-partages`) — rendu
+      identique, classes reprises telles quelles
+  - `components/ui` : primitives shadcn restylées Modernist (button, input,
+    native-select, card, badge, alert, table, skeleton)
+  - `components/` : composites génériques (Panel, StatCard, DetailList,
+    EmptyState/ErrorState, SkeletonRows, FormField, Hint, CopyButton,
+    ThemeToggle, AddressLink/TxLink)
+  - `features/payroll/components` : ce qui est propre à la paie (EventBadge,
+    LogsReadError, RegisteredMark, Countdown, GateLayout)
+  - suppression de `ui-kit.tsx` et des enveloppes `Base*` inutilisées du boilerplate
+  - vérification : typecheck, lint, build passés ; A1 vu dans le navigateur,
+    classes rendues identiques à l'avant. **Reste à voir avec un portefeuille** :
+    B1–B10, C1–C5, D1–D4 (inaccessibles sans MetaMask dans le navigateur de test)
 
 ## Done — vu à l'écran, avec des données de la chaîne
 
@@ -128,7 +140,7 @@ Toutes closes. Les deux dernières, déplacées ci-dessous.
 - [ ] Surfacer les erreurs restantes : `useSwitchChain`, `useDisconnect`
 
 ### Dette relevée, à reprendre après la recette
-- [ ] **Rangement des composants.** L'intention de départ : `/components` à la
+- [~] **Rangement des composants.** Traité par la tâche en cours ci-dessus. L'intention de départ : `/components` à la
       racine pour l'interface réutilisable, `/features` pour ce qui appartient à
       une fonctionnalité. Aujourd'hui `features/payroll/components/ui-kit.tsx`
       concentre des briques génériques (`Panneau`, `Kpi`, `Tableau`, `Squelette`,
