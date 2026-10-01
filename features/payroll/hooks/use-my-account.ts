@@ -5,8 +5,8 @@ import { useAccount, useReadContract } from "wagmi";
 import { erc20Abi } from "viem";
 import { payrollAbi } from "@/lib/contracts/payroll-abi";
 import { CHAIN, PAYROLL_ADDRESS, TOKEN_ADDRESS } from "@/lib/contracts/config";
-import { useSalarie, useParametres } from "./use-payroll";
-import { useEvenements } from "./use-events";
+import { useEmployee, useSettings } from "./use-payroll";
+import { useEvents } from "./use-events";
 
 /**
  * Données de l'espace salarié.
@@ -24,13 +24,13 @@ import { useEvenements } from "./use-events";
  * posée sur `getTotalSalaries()` ne protège donc pas la valeur qu'elle
  * dissimule, seulement le chemin le plus court pour y accéder.
  */
-export function useMonEspace() {
+export function useMyAccount() {
   const { address } = useAccount();
-  const { data: fiche } = useSalarie(address);
-  const { data: evenements, isLoading, isError: echecJournaux } = useEvenements();
-  const { cyclesReserves } = useParametres();
+  const { data: record } = useEmployee(address);
+  const { data: events, isLoading, isError: logsFailure } = useEvents();
+  const { reservedCycles } = useSettings();
 
-  const { data: soldeContrat } = useReadContract({
+  const { data: contractBalance } = useReadContract({
     abi: erc20Abi,
     address: TOKEN_ADDRESS,
     chainId: CHAIN.id,
@@ -44,7 +44,7 @@ export function useMonEspace() {
    * Ce refus est lui-même une information : il dit que le contrat est
    * sous-provisionné au regard des cycles réservés.
    */
-  const { data: surplus, isError: reserveEntamee } = useReadContract({
+  const { data: surplus, isError: reserveBreached } = useReadContract({
     abi: payrollAbi,
     address: PAYROLL_ADDRESS,
     chainId: CHAIN.id,
@@ -53,46 +53,46 @@ export function useMonEspace() {
   });
 
   /** masse = (solde − surplus) / cycles */
-  const masse = useMemo(() => {
+  const payrollTotal = useMemo(() => {
     if (
-      soldeContrat === undefined ||
+      contractBalance === undefined ||
       surplus === undefined ||
-      cyclesReserves === undefined ||
-      cyclesReserves === 0n
+      reservedCycles === undefined ||
+      reservedCycles === 0n
     ) {
       return undefined;
     }
-    return (soldeContrat - surplus) / cyclesReserves;
-  }, [soldeContrat, surplus, cyclesReserves]);
+    return (contractBalance - surplus) / reservedCycles;
+  }, [contractBalance, surplus, reservedCycles]);
 
-  const versements = useMemo(() => {
-    if (!address || !evenements) return [];
-    const moi = address.toLowerCase();
-    return evenements.filter(
-      (e) => e.type === "SalaryPaid" && e.sujet?.toLowerCase() === moi
+  const payments = useMemo(() => {
+    if (!address || !events) return [];
+    const ownRecord = address.toLowerCase();
+    return events.filter(
+      (e) => e.type === "SalaryPaid" && e.subject?.toLowerCase() === ownRecord
     );
-  }, [evenements, address]);
+  }, [events, address]);
 
-  const totalPercu = versements.reduce((s, v) => s + (v.montant ?? 0n), 0n);
+  const totalReceived = payments.reduce((s, v) => s + (v.amount ?? 0n), 0n);
 
   return {
-    enCours: isLoading,
-    adresse: address,
-    salaire: fiche?.salary,
-    masse,
-    soldeContrat,
-    cyclesReserves,
+    busy: isLoading,
+    address: address,
+    salary: record?.salary,
+    payrollTotal,
+    contractBalance,
+    reservedCycles,
     /** Vrai si le solde ne couvre même pas la réserve : la paie échouerait. */
-    reserveEntamee,
-    provisionSuffisante:
-      soldeContrat !== undefined && masse !== undefined
-        ? soldeContrat >= masse
-        : reserveEntamee
+    reserveBreached,
+    sufficientlyFunded:
+      contractBalance !== undefined && payrollTotal !== undefined
+        ? contractBalance >= payrollTotal
+        : reserveBreached
           ? false
           : undefined,
-    versements,
-    totalPercu,
+    payments,
+    totalReceived,
     /** Vrai si les journaux n'ont pas pu être lus : la liste vide ne vaut rien. */
-    echecJournaux,
+    logsFailure,
   };
 }

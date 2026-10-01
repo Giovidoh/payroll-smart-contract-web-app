@@ -4,107 +4,107 @@ import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { createSiweMessage } from "viem/siwe";
 
 const BASE = "http://localhost:3000";
-const compte = privateKeyToAccount(generatePrivateKey());
+const account = privateKeyToAccount(generatePrivateKey());
 
 let cookie = "";
-const appel = async (chemin, init = {}) => {
-  const r = await fetch(BASE + chemin, {
+const call = async (path, init = {}) => {
+  const r = await fetch(BASE + path, {
     ...init,
     headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}), ...init.headers },
   });
   const set = r.headers.get("set-cookie");
   if (set) cookie = set.split(";")[0];
-  let corps;
-  try { corps = await r.json(); } catch { corps = null; }
-  return { statut: r.status, corps };
+  let body;
+  try { body = await r.json(); } catch { body = null; }
+  return { status: r.status, body };
 };
 
-const verifier = (nom, condition, detail = "") => {
-  console.log(`${condition ? "  OK  " : " ECHEC"}  ${nom}${detail ? "  — " + detail : ""}`);
+const check = (name, condition, detail = "") => {
+  console.log(`${condition ? "  OK  " : " ECHEC"}  ${name}${detail ? "  — " + detail : ""}`);
   if (!condition) process.exitCode = 1;
 };
 
-console.log(`Compte jetable : ${compte.address}\n`);
+console.log(`Compte jetable : ${account.address}\n`);
 
 // 1. Aléa
-const { corps: n1 } = await appel("/api/auth/nonce", { method: "POST" });
-verifier("l'aléa est engendré", typeof n1?.alea === "string" && n1.alea.length === 32);
+const { body: n1 } = await call("/api/auth/nonce", { method: "POST" });
+check("l'aléa est engendré", typeof n1?.nonce === "string" && n1.nonce.length === 32);
 
 // 2. Message EIP-4361 signé
 const message = createSiweMessage({
-  address: compte.address,
+  address: account.address,
   chainId: 11155111,
   domain: "localhost:3000",
-  nonce: n1.alea,
+  nonce: n1.nonce,
   uri: BASE,
   version: "1",
   statement: "Authentification a l'application de paie.",
 });
-const signature = await compte.signMessage({ message });
+const signature = await account.signMessage({ message });
 
-const { statut: s2, corps: c2 } = await appel("/api/auth/session", {
+const { status: s2, body: b2 } = await call("/api/auth/session", {
   method: "POST",
   body: JSON.stringify({ message, signature }),
 });
-verifier("la session s'ouvre sur signature valide", s2 === 200, `statut ${s2} ${JSON.stringify(c2)}`);
-verifier("l'adresse renvoyee est la bonne", c2?.adresse === compte.address.toLowerCase());
+check("la session s'ouvre sur signature valide", s2 === 200, `statut ${s2} ${JSON.stringify(b2)}`);
+check("l'adresse renvoyee est la bonne", b2?.address === account.address.toLowerCase());
 
 // 3. Rejeu du meme alea
-const { statut: s3 } = await appel("/api/auth/session", {
+const { status: s3 } = await call("/api/auth/session", {
   method: "POST",
   body: JSON.stringify({ message, signature }),
 });
-verifier("le rejeu du meme alea est refuse", s3 === 401, `statut ${s3}`);
+check("le rejeu du meme alea est refuse", s3 === 401, `statut ${s3}`);
 
 // 3 bis. Message signe pour un autre domaine, presente avec l'en-tete Host
 // correspondant. Le serveur doit refuser : le domaine attendu est epingle dans
 // sa configuration et ne se deduit pas de la requete. Sans cela, une signature
 // obtenue sur un site d'hameconnage serait acceptee ici.
 {
-  const { corps: n } = await appel("/api/auth/nonce", { method: "POST" });
-  const menteur = createSiweMessage({
-    address: compte.address,
+  const { body: n } = await call("/api/auth/nonce", { method: "POST" });
+  const spoofed = createSiweMessage({
+    address: account.address,
     chainId: 11155111,
     domain: "hameconnage.example",
-    nonce: n.alea,
+    nonce: n.nonce,
     uri: "https://hameconnage.example",
     version: "1",
   });
-  const sig = await compte.signMessage({ message: menteur });
-  const garde = cookie;
+  const sig = await account.signMessage({ message: spoofed });
+  const saved = cookie;
   cookie = "";
-  const { statut } = await appel("/api/auth/session", {
+  const { status } = await call("/api/auth/session", {
     method: "POST",
     headers: { host: "hameconnage.example" },
-    body: JSON.stringify({ message: menteur, signature: sig }),
+    body: JSON.stringify({ message: spoofed, signature: sig }),
   });
-  verifier("un message signe pour un autre domaine est refuse", statut === 401, `statut ${statut}`);
-  cookie = garde;
+  check("un message signe pour un autre domaine est refuse", status === 401, `statut ${status}`);
+  cookie = saved;
 }
 
 // 4. Lecture : ni proprietaire ni salarie -> liste vide, pas un refus
-const { statut: s4, corps: c4 } = await appel("/api/employees");
-verifier("la lecture aboutit", s4 === 200, `statut ${s4}`);
-verifier("aucune fiche n'est divulguee", Array.isArray(c4?.fiches) && c4.fiches.length === 0,
-  JSON.stringify(c4));
+const { status: s4, body: b4 } = await call("/api/employees");
+check("la lecture aboutit", s4 === 200, `statut ${s4}`);
+check("aucune fiche n'est divulguee", Array.isArray(b4?.records) && b4.records.length === 0,
+  JSON.stringify(b4));
 
 // 5. Ecriture : reservee au proprietaire
-const { statut: s5, corps: c5 } = await appel(`/api/employees/${compte.address}`, {
+const { status: s5, body: b5 } = await call(`/api/employees/${account.address}`, {
   method: "PUT",
-  body: JSON.stringify({ nom: "Test", prenom: "Sonde", poste: "", email: "", embauche: "" }),
+  body: JSON.stringify({ lastName: "Test", firstName: "Sonde", jobTitle: "", email: "", hireDate: "" }),
 });
-verifier("l'ecriture est refusee a un non-proprietaire", s5 === 403, `statut ${s5} ${JSON.stringify(c5)}`);
+check("l'ecriture est refusee a un non-proprietaire", s5 === 403, `statut ${s5} ${JSON.stringify(b5)}`);
 
 // 6. Cookie falsifie
-const vrai = cookie;
-cookie = vrai.slice(0, -4) + "0000";
-const { statut: s6 } = await appel("/api/employees");
-verifier("un cookie falsifie est rejete", s6 === 401, `statut ${s6}`);
-cookie = vrai;
+const genuine = cookie;
+cookie = genuine.slice(0, -4) + "0000";
+const { status: s6 } = await call("/api/employees");
+check("un cookie falsifie est rejete", s6 === 401, `statut ${s6}`);
+cookie = genuine;
 
 // 7. Registre accessible, vide
-const { statut: s7, corps: c7 } = await appel("/api/payslips");
-verifier("le registre repond", s7 === 200 && Array.isArray(c7?.bulletins), `statut ${s7}`);
+const { status: s7, body: b7 } = await call("/api/payslips");
+check("le registre repond", s7 === 200 && Array.isArray(b7?.payslips), `statut ${s7}`);
 
 // 7 bis. Registre de paie : inscription d'un bulletin.
 //
@@ -113,78 +113,78 @@ verifier("le registre repond", s7 === 200 && Array.isArray(c7?.bulletins), `stat
 // ensuite une fiche directement en base pour verifier le chemin complet, y
 // compris l'idempotence — reemettre un bulletin n'ajoute pas une ligne, le
 // registre attestant un versement et non un telechargement.
-const hachage = "0x" + "ab".repeat(32);
+const txHash = "0x" + "ab".repeat(32);
 
 {
-  const { statut, corps } = await appel("/api/payslips", {
+  const { status, body } = await call("/api/payslips", {
     method: "POST",
-    body: JSON.stringify({ adresse: compte.address, hash: hachage, numeroLog: 3 }),
+    body: JSON.stringify({ address: account.address, hash: txHash, logIndex: 3 }),
   });
-  verifier("sans identite, le bulletin n'est pas inscrit", statut === 409, `statut ${statut}`);
-  if (statut !== 409) console.log("   ", JSON.stringify(corps));
+  check("sans identite, le bulletin n'est pas inscrit", status === 409, `statut ${status}`);
+  if (status !== 409) console.log("   ", JSON.stringify(body));
 }
 
 {
-  const { statut } = await appel("/api/payslips", {
+  const { status } = await call("/api/payslips", {
     method: "POST",
-    body: JSON.stringify({ adresse: compte.address, hash: "0x12", numeroLog: 3 }),
+    body: JSON.stringify({ address: account.address, hash: "0x12", logIndex: 3 }),
   });
-  verifier("un hachage mal forme est refuse", statut === 400, `statut ${statut}`);
+  check("un hachage mal forme est refuse", status === 400, `statut ${status}`);
 }
 
 const mysql = await import("mysql2/promise").then((m) => m.default);
-const bd = await mysql.createConnection(process.env.DATABASE_URL);
-const contrat = process.env.NEXT_PUBLIC_PAYROLL_ADDRESS.toLowerCase();
-const adresse = compte.address.toLowerCase();
+const db = await mysql.createConnection(process.env.DATABASE_URL);
+const contract = process.env.NEXT_PUBLIC_PAYROLL_ADDRESS.toLowerCase();
+const address = account.address.toLowerCase();
 try {
-  await bd.execute(
+  await db.execute(
     "INSERT INTO Employe (adresse_contrat, adresse_ethereum, nom, prenom) VALUES (?, ?, 'Sonde', 'Verif')",
-    [contrat, adresse]
+    [contract, address]
   );
 
-  const { statut: sa } = await appel("/api/payslips", {
+  const { status: sa } = await call("/api/payslips", {
     method: "POST",
-    body: JSON.stringify({ adresse: compte.address, hash: hachage, numeroLog: 3 }),
+    body: JSON.stringify({ address: account.address, hash: txHash, logIndex: 3 }),
   });
-  verifier("le bulletin est inscrit au registre", sa === 200, `statut ${sa}`);
+  check("le bulletin est inscrit au registre", sa === 200, `statut ${sa}`);
 
-  const { statut: sb } = await appel("/api/payslips", {
+  const { status: sb } = await call("/api/payslips", {
     method: "POST",
-    body: JSON.stringify({ adresse: compte.address, hash: hachage, numeroLog: 3 }),
+    body: JSON.stringify({ address: account.address, hash: txHash, logIndex: 3 }),
   });
-  verifier("la reinscription est idempotente", sb === 200, `statut ${sb}`);
+  check("la reinscription est idempotente", sb === 200, `statut ${sb}`);
 
-  const [compte_lignes] = await bd.execute(
+  const [rowCount] = await db.execute(
     `SELECT COUNT(*) AS n FROM BulletinPaie b JOIN Employe e ON e.id = b.employe_id
       WHERE e.adresse_ethereum = ? AND b.hash_transaction = ?`,
-    [adresse, hachage]
+    [address, txHash]
   );
-  verifier("une seule ligne en base pour deux emissions",
-    compte_lignes[0].n === 1, `${compte_lignes[0].n} ligne(s)`);
+  check("une seule ligne en base pour deux emissions",
+    rowCount[0].n === 1, `${rowCount[0].n} ligne(s)`);
 
-  const { corps: reg } = await appel("/api/payslips");
-  const vu = (reg?.bulletins ?? []).find(
-    (b) => b.hash_transaction === hachage && b.numero_log === 3
+  const { body: registry } = await call("/api/payslips");
+  const seen = (registry?.payslips ?? []).find(
+    (p) => p.txHash === txHash && p.logIndex === 3
   );
-  verifier("le salarie relit son bulletin dans le registre", Boolean(vu), JSON.stringify(vu));
+  check("le salarie relit son bulletin dans le registre", Boolean(seen), JSON.stringify(seen));
 
-  const { statut: sc } = await appel("/api/payslips", {
+  const { status: sc } = await call("/api/payslips", {
     method: "POST",
     body: JSON.stringify({
-      adresse: "0x000000000000000000000000000000000000dEaD",
-      hash: hachage,
-      numeroLog: 4,
+      address: "0x000000000000000000000000000000000000dEaD",
+      hash: txHash,
+      logIndex: 4,
     }),
   });
-  verifier("nul n'inscrit le bulletin d'autrui", sc === 403, `statut ${sc}`);
+  check("nul n'inscrit le bulletin d'autrui", sc === 403, `statut ${sc}`);
 } finally {
   // La sonde ne laisse rien derriere elle : la cascade emporte les bulletins.
-  await bd.execute("DELETE FROM Employe WHERE adresse_ethereum = ?", [adresse]);
-  await bd.end();
+  await db.execute("DELETE FROM Employe WHERE adresse_ethereum = ?", [address]);
+  await db.end();
 }
 
 // 8. Deconnexion
-const { statut: s8 } = await appel("/api/auth/session", { method: "DELETE" });
-verifier("la session se ferme", s8 === 200);
-const { statut: s9 } = await appel("/api/employees");
-verifier("apres deconnexion, la lecture est refusee", s9 === 401, `statut ${s9}`);
+const { status: s8 } = await call("/api/auth/session", { method: "DELETE" });
+check("la session se ferme", s8 === 200);
+const { status: s9 } = await call("/api/employees");
+check("apres deconnexion, la lecture est refusee", s9 === 401, `statut ${s9}`);

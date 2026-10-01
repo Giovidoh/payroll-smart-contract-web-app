@@ -18,15 +18,15 @@ import { useSession } from "../hooks/use-session";
  * La signature ne coûte rien et n'autorise aucune dépense : elle ne quitte pas
  * le serveur et ne peut pas être présentée à la chaîne.
  */
-export default function SignatureEcran() {
+export default function SignInScreen() {
   const { address } = useAccount();
   const { disconnect } = useDisconnect();
-  const { ouvrir, ouvertureEnCours, erreur, desaccordee } = useSession();
+  const { open, opening, error, mismatched } = useSession();
 
   return (
-    <GateLayout title={desaccordee ? "Compte changé" : "Prouvez votre identité"}>
+    <GateLayout title={mismatched ? "Compte changé" : "Prouvez votre identité"}>
       <p className="mb-4 text-ink-2">
-        {desaccordee ? (
+        {mismatched ? (
           <>
             La session ouverte porte sur un autre compte que celui
             actuellement connecté. Signez de nouveau pour que le répertoire
@@ -46,13 +46,13 @@ export default function SignatureEcran() {
       <Button
         size="xl"
         block
-        disabled={ouvertureEnCours}
-        onClick={() => ouvrir().catch(() => undefined)}
+        disabled={opening}
+        onClick={() => open().catch(() => undefined)}
       >
-        {ouvertureEnCours ? "En attente de signature…" : "Signer pour accéder"}
+        {opening ? "En attente de signature…" : "Signer pour accéder"}
       </Button>
 
-      {erreur && <p className="mt-3 text-err">{erreur.message.split("\n")[0]}</p>}
+      {error && <p className="mt-3 text-err">{error.message.split("\n")[0]}</p>}
 
       <Hint className="mt-3">
         Signature gratuite : aucune transaction n&apos;est diffusée, aucun

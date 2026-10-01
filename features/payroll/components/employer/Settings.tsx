@@ -20,30 +20,30 @@ import { Input } from "@/components/ui/input";
 import { DetailList, DetailItem } from "@/components/detail-list";
 import { FormField, FieldError } from "@/components/form-field";
 import { Hint } from "@/components/hint";
-import { useParametres, useOwner } from "../../hooks/use-payroll";
+import { useSettings, useOwner } from "../../hooks/use-payroll";
 import type { Operation } from "../../hooks/use-transaction";
 
-export default function Parametres({
-  onDemander,
+export default function Settings({
+  onRequest,
 }: {
-  onDemander: (o: Operation) => void;
+  onRequest: (o: Operation) => void;
 }) {
-  const { intervalle, cyclesReserves, dernierePaie } = useParametres();
+  const { interval, reservedCycles, lastPayroll } = useSettings();
   const { data: owner } = useOwner();
-  const { data: enAttente } = useReadContract({
+  const { data: pending } = useReadContract({
     abi: payrollAbi,
     address: PAYROLL_ADDRESS,
     functionName: "pendingOwner",
     query: { refetchInterval: 12_000 },
   });
 
-  const [nouveau, setNouveau] = useState("");
-  const valide = isAddress(nouveau);
-  const memeQueActuel =
-    valide && owner && nouveau.toLowerCase() === owner.toLowerCase();
+  const [newOwner, setNewOwner] = useState("");
+  const valid = isAddress(newOwner);
+  const sameAsCurrent =
+    valid && owner && newOwner.toLowerCase() === owner.toLowerCase();
 
-  const transfertEnCours =
-    enAttente && enAttente !== "0x0000000000000000000000000000000000000000";
+  const transferPending =
+    pending && pending !== "0x0000000000000000000000000000000000000000";
 
   return (
     <>
@@ -54,13 +54,13 @@ export default function Parametres({
           <DetailItem ruled label="Jeton de règlement">{<AddressLink address={TOKEN_ADDRESS} />}</DetailItem>
           <DetailItem ruled label="Symbole / décimales">{`${TOKEN_SYMBOL} · ${TOKEN_DECIMALS}`}</DetailItem>
           <DetailItem ruled label="Intervalle minimal entre deux paies">
-            {intervalle !== undefined ? formatInterval(intervalle) : "…"}
+            {interval !== undefined ? formatInterval(interval) : "…"}
             </DetailItem>
           <DetailItem ruled label="Cycles de paie réservés">
-            {cyclesReserves !== undefined ? String(cyclesReserves) : "…"}
+            {reservedCycles !== undefined ? String(reservedCycles) : "…"}
             </DetailItem>
           <DetailItem ruled label="Horodatage de la dernière paie">
-            {dernierePaie ? formatDateTime(dernierePaie) : "…"}
+            {lastPayroll ? formatDateTime(lastPayroll) : "…"}
             </DetailItem>
           <DetailItem ruled label="Propriétaire">
             {owner ? <AddressLink address={owner} /> : "…"}
@@ -74,9 +74,9 @@ export default function Parametres({
         </Hint>
       </Panel>
 
-      {transfertEnCours && (
+      {transferPending && (
         <Alert tone="warn" title="Transfert de propriété en attente.">
-          {shortAddress(enAttente!)} a été proposé comme nouveau propriétaire et n&apos;a
+          {shortAddress(pending!)} a été proposé comme nouveau propriétaire et n&apos;a
           pas encore accepté. Vous restez propriétaire jusque-là.
         </Alert>
       )}
@@ -91,32 +91,32 @@ export default function Parametres({
 
         <FormField label="Adresse du nouveau propriétaire" required>
           <Input
-            value={nouveau}
-            onChange={(e) => setNouveau(e.target.value)}
+            value={newOwner}
+            onChange={(e) => setNewOwner(e.target.value)}
             placeholder="0x…"
             className="font-mono"
           />
         </FormField>
-        {nouveau && !valide && <FieldError className="mt-1">Adresse invalide.</FieldError>}
-        {memeQueActuel && (
+        {newOwner && !valid && <FieldError className="mt-1">Adresse invalide.</FieldError>}
+        {sameAsCurrent && (
           <FieldError className="mt-1">C&apos;est déjà le propriétaire actuel.</FieldError>
         )}
 
         <Button
           className="mt-4"
-          disabled={!valide || Boolean(memeQueActuel)}
+          disabled={!valid || Boolean(sameAsCurrent)}
           onClick={() =>
-            onDemander({
-              titre: "Proposer le transfert de propriété",
+            onRequest({
+              title: "Proposer le transfert de propriété",
               code: "B9",
               message:
                 "Vous proposez le transfert. Vous restez propriétaire tant que le destinataire n'a pas accepté depuis son portefeuille.",
-              lignes: [{ label: "Destinataire", valeur: shortAddress(nouveau) }],
-              appels: [
+              rows: [{ label: "Destinataire", value: shortAddress(newOwner) }],
+              calls: [
                 {
-                  cible: "payroll",
-                  fonction: "transferOwnership",
-                  args: [nouveau as Address],
+                  target: "payroll",
+                  functionName: "transferOwnership",
+                  args: [newOwner as Address],
                 },
               ],
             })

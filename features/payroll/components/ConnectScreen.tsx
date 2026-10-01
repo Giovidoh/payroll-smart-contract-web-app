@@ -12,11 +12,11 @@ import { GateLayout } from "./GateLayout";
 import { useRole } from "../hooks/use-payroll";
 
 /** Les erreurs de viem tiennent sur plusieurs lignes ; la première suffit ici. */
-const premiereLigne = (m: string) => m.split("\n")[0];
+const firstLine = (m: string) => m.split("\n")[0];
 
-export default function ConnexionEcran() {
+export default function ConnectScreen() {
   const { address, isConnected, chainId } = useAccount();
-  const { connect, connectors, isPending, error: erreurConnexion, variables } = useConnect();
+  const { connect, connectors, isPending, error: connectError, variables } = useConnect();
 
   /*
    * Avec plusieurs portefeuilles installés, la découverte EIP-6963 les annonce
@@ -24,31 +24,31 @@ export default function ConnexionEcran() {
    * emploi et, les extensions se disputant `window.ethereum`, c'est souvent lui
    * qui échoue. On ne le propose que s'il est seul.
    */
-  const nommes = connectors.filter((c) => c.id !== "injected");
-  const proposes = nommes.length > 0 ? nommes : connectors;
+  const named = connectors.filter((c) => c.id !== "injected");
+  const proposed = named.length > 0 ? named : connectors;
   const { disconnect } = useDisconnect();
-  const { switchChain, isPending: bascule } = useSwitchChain();
-  const { role, enCours } = useRole();
+  const { switchChain, isPending: toggle } = useSwitchChain();
+  const { role, busy } = useRole();
 
-  const mauvaisReseau = isConnected && chainId !== CHAIN.id;
-  const inconnu = isConnected && !mauvaisReseau && !enCours && role === "inconnu";
+  const wrongNetwork = isConnected && chainId !== CHAIN.id;
+  const unknownAccount = isConnected && !wrongNetwork && !busy && role === "unknown";
 
-  const changerDePortefeuille = (
+  const switchWallet = (
     <Button variant="secondary" size="xl" block className="mt-2" onClick={() => disconnect()}>
       Changer de portefeuille
     </Button>
   );
 
-  const piedDePage = (
+  const footerText = (
     <Hint className="mt-4">
       Contrat <AddressLink address={PAYROLL_ADDRESS} />
     </Hint>
   );
 
   /* A2 — portefeuille connecté sur le mauvais réseau */
-  if (mauvaisReseau) {
+  if (wrongNetwork) {
     return (
-      <GateLayout title="Mauvais réseau" footer={piedDePage}>
+      <GateLayout title="Mauvais réseau" footer={footerText}>
         <p className="mb-4 text-ink-2">
           Votre portefeuille est connecté à un autre réseau. Le contrat n&apos;existe
           que sur {CHAIN.name} ; ailleurs, l&apos;adresse ne pointe sur rien.
@@ -56,20 +56,20 @@ export default function ConnexionEcran() {
         <Button
           size="xl"
           block
-          disabled={bascule}
+          disabled={toggle}
           onClick={() => switchChain({ chainId: CHAIN.id })}
         >
-          {bascule ? "Basculement…" : `Basculer sur ${CHAIN.name}`}
+          {toggle ? "Basculement…" : `Basculer sur ${CHAIN.name}`}
         </Button>
-        {changerDePortefeuille}
+        {switchWallet}
       </GateLayout>
     );
   }
 
   /* A3 — connecté, mais ni propriétaire ni salarié */
-  if (inconnu) {
+  if (unknownAccount) {
     return (
-      <GateLayout title="Adresse non reconnue" footer={piedDePage}>
+      <GateLayout title="Adresse non reconnue" footer={footerText}>
         <p className="mb-3 text-ink-2">
           L&apos;adresse{" "}
           <span className="font-mono">{shortAddress(address!)}</span> ne figure
@@ -79,33 +79,33 @@ export default function ConnexionEcran() {
         <CopyButton value={address} toastMessage="Adresse copiée" size="xl" block>
           Copier mon adresse pour l&apos;employeur
         </CopyButton>
-        {changerDePortefeuille}
+        {switchWallet}
       </GateLayout>
     );
   }
 
   /* A1 — état initial */
   return (
-    <GateLayout title="Connexion" footer={piedDePage}>
+    <GateLayout title="Connexion" footer={footerText}>
       <p className="mb-4 text-ink-2">
         L&apos;application ne détient aucun compte et ne conserve aucun mot de
         passe : votre portefeuille est votre identité, et le contrat seul
         décide de ce que vous pouvez faire.
       </p>
 
-      {erreurConnexion && (
+      {connectError && (
         <AlertMessage tone="err" className="mb-3">
-          La connexion a échoué : {premiereLigne(erreurConnexion.message)}
+          La connexion a échoué : {firstLine(connectError.message)}
         </AlertMessage>
       )}
 
-      {proposes.length === 0 ? (
+      {proposed.length === 0 ? (
         <AlertMessage tone="warn">
           Aucun portefeuille détecté dans ce navigateur. Installez MetaMask,
           puis rechargez la page.
         </AlertMessage>
       ) : (
-        proposes.map((c) => (
+        proposed.map((c) => (
           <Button
             key={c.uid}
             size="xl"
@@ -125,7 +125,7 @@ export default function ConnexionEcran() {
         ))
       )}
 
-      {isConnected && enCours && (
+      {isConnected && busy && (
         <p className="mt-3 text-ink-3">Lecture du rôle sur la chaîne…</p>
       )}
     </GateLayout>

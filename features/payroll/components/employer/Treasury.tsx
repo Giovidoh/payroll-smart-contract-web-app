@@ -12,55 +12,55 @@ import { DetailList, DetailItem, DetailTotal } from "@/components/detail-list";
 import { Hint } from "@/components/hint";
 import { SkeletonRows } from "@/components/skeleton-rows";
 import {
-  useTresorerie,
-  useSoldeJeton,
-  useAutorisation,
-  useParametres,
+  useTreasury,
+  useTokenBalance,
+  useAllowance,
+  useSettings,
 } from "../../hooks/use-payroll";
 import type { Operation } from "../../hooks/use-transaction";
 
-export default function Tresorerie({
-  onDemander,
+export default function Treasury({
+  onRequest,
 }: {
-  onDemander: (o: Operation) => void;
+  onRequest: (o: Operation) => void;
 }) {
   const { address } = useAccount();
-  const { solde, surplus, reserve, masse, enCours } = useTresorerie({
-    estProprietaire: true,
+  const { balance, surplus, reserve, payrollTotal, busy } = useTreasury({
+    isOwner: true,
   });
-  const { data: soldeEmployeur } = useSoldeJeton(address);
-  const { data: autorisation } = useAutorisation(address);
-  const { cyclesReserves } = useParametres();
+  const { data: employerBalance } = useTokenBalance(address);
+  const { data: allowance } = useAllowance(address);
+  const { reservedCycles } = useSettings();
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      <PanneauDepot
-        soldeEmployeur={soldeEmployeur}
-        autorisation={autorisation}
-        solde={solde}
-        onDemander={onDemander}
+      <DepositPanel
+        employerBalance={employerBalance}
+        allowance={allowance}
+        balance={balance}
+        onRequest={onRequest}
       />
-      <PanneauRetrait surplus={surplus} onDemander={onDemander} />
+      <WithdrawPanel surplus={surplus} onRequest={onRequest} />
 
       <Panel title="Composition du solde" className="lg:col-span-2">
-        {enCours || solde === undefined ? (
+        {busy || balance === undefined ? (
           <SkeletonRows rows={4} />
         ) : (
           <>
             <DetailList>
-              <DetailItem label="Solde total du contrat">{formatToken(solde)}</DetailItem>
-              <DetailItem label={`Réserve immobilisée (${cyclesReserves ?? "…"} cycles)`}>
+              <DetailItem label="Solde total du contrat">{formatToken(balance)}</DetailItem>
+              <DetailItem label={`Réserve immobilisée (${reservedCycles ?? "…"} cycles)`}>
                 {reserve !== undefined ? formatToken(reserve) : "…"}
               </DetailItem>
               <DetailItem label="Masse salariale d'un cycle">
-                {masse !== undefined ? formatToken(masse) : "…"}
+                {payrollTotal !== undefined ? formatToken(payrollTotal) : "…"}
               </DetailItem>
               <DetailTotal label="Surplus retirable">
                 {surplus !== undefined ? formatToken(surplus) : "…"}
               </DetailTotal>
             </DetailList>
             <Hint className="mt-3.5">
-              La réserve couvre {cyclesReserves ?? "plusieurs"} cycles de paie. Le
+              La réserve couvre {reservedCycles ?? "plusieurs"} cycles de paie. Le
               contrat refuse tout retrait qui l&apos;entamerait, y compris au
               propriétaire : c&apos;est ce qui fait de la créance de salaire une
               garantie opposable à l&apos;employeur lui-même.
@@ -72,23 +72,23 @@ export default function Tresorerie({
   );
 }
 
-function PanneauDepot({
-  soldeEmployeur,
-  autorisation,
-  solde,
-  onDemander,
+function DepositPanel({
+  employerBalance,
+  allowance,
+  balance,
+  onRequest,
 }: {
-  soldeEmployeur?: bigint;
-  autorisation?: bigint;
-  solde?: bigint;
-  onDemander: (o: Operation) => void;
+  employerBalance?: bigint;
+  allowance?: bigint;
+  balance?: bigint;
+  onRequest: (o: Operation) => void;
 }) {
-  const [saisie, setSaisie] = useState("");
-  const montant = parseTokenOrNull(saisie);
+  const [input, setInput] = useState("");
+  const amount = parseTokenOrNull(input);
 
-  const insuffisant =
-    montant !== null && soldeEmployeur !== undefined && montant > soldeEmployeur;
-  const pret = montant !== null && montant > 0n && !insuffisant;
+  const insufficient =
+    amount !== null && employerBalance !== undefined && amount > employerBalance;
+  const ready = amount !== null && amount > 0n && !insufficient;
 
   /**
    * Un jeton ERC-20 ne peut pas être « envoyé » à un contrat qui le tire : il faut
@@ -96,8 +96,8 @@ function PanneauDepot({
    * couvre déjà le montant, la première transaction est inutile et on l'épargne
    * à l'utilisateur.
    */
-  const autorisationSuffit =
-    montant !== null && autorisation !== undefined && autorisation >= montant;
+  const allowanceSuffices =
+    amount !== null && allowance !== undefined && allowance >= amount;
 
   return (
     <Panel title="Approvisionner le contrat">
@@ -108,8 +108,8 @@ function PanneauDepot({
 
       <FormField label={`Montant à déposer (${TOKEN_SYMBOL})`} required>
         <Input
-          value={saisie}
-          onChange={(e) => setSaisie(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           inputMode="decimal"
           placeholder="5000,00"
           className="font-mono"
@@ -119,19 +119,19 @@ function PanneauDepot({
       <div className="mt-2 grid gap-1 text-[11px] text-ink-3">
         <span>
           Votre solde :{" "}
-          {soldeEmployeur !== undefined ? formatToken(soldeEmployeur) : "…"}
+          {employerBalance !== undefined ? formatToken(employerBalance) : "…"}
         </span>
-        {montant !== null && solde !== undefined && (
-          <span>Solde du contrat après dépôt : {formatToken(solde + montant)}</span>
+        {amount !== null && balance !== undefined && (
+          <span>Solde du contrat après dépôt : {formatToken(balance + amount)}</span>
         )}
-        {autorisationSuffit && (
+        {allowanceSuffices && (
           <span className="text-ok">
             Autorisation déjà accordée : une seule transaction suffira.
           </span>
         )}
       </div>
 
-      {insuffisant && (
+      {insufficient && (
         <FieldError className="mt-2">
           Montant supérieur à votre solde en {TOKEN_SYMBOL}.
         </FieldError>
@@ -140,51 +140,51 @@ function PanneauDepot({
       <Button
         block
         className="mt-4"
-        disabled={!pret}
+        disabled={!ready}
         onClick={() =>
-          onDemander({
-            titre: "Approvisionner le contrat",
+          onRequest({
+            title: "Approvisionner le contrat",
             code: "B6",
             message:
               "Les fonds déposés deviennent immédiatement soumis à la réserve : la part couvrant les cycles réservés ne pourra plus être retirée.",
-            lignes: [{ label: "Montant", valeur: formatToken(montant!) }],
-            etapes: autorisationSuffit
+            rows: [{ label: "Montant", value: formatToken(amount!) }],
+            steps: allowanceSuffices
               ? undefined
               : [
-                  `Autoriser le contrat à prélever ${formatToken(montant!)}`,
+                  `Autoriser le contrat à prélever ${formatToken(amount!)}`,
                   "Déposer les fonds",
                 ],
-            appels: autorisationSuffit
-              ? [{ cible: "payroll", fonction: "deposit", args: [montant!] }]
+            calls: allowanceSuffices
+              ? [{ target: "payroll", functionName: "deposit", args: [amount!] }]
               : [
                   {
-                    cible: "token",
-                    fonction: "approve",
-                    args: [PAYROLL_ADDRESS, montant!],
+                    target: "token",
+                    functionName: "approve",
+                    args: [PAYROLL_ADDRESS, amount!],
                   },
-                  { cible: "payroll", fonction: "deposit", args: [montant!] },
+                  { target: "payroll", functionName: "deposit", args: [amount!] },
                 ],
           })
         }
       >
-        Déposer {montant !== null ? formatToken(montant) : ""}
+        Déposer {amount !== null ? formatToken(amount) : ""}
       </Button>
     </Panel>
   );
 }
 
-function PanneauRetrait({
+function WithdrawPanel({
   surplus,
-  onDemander,
+  onRequest,
 }: {
   surplus?: bigint;
-  onDemander: (o: Operation) => void;
+  onRequest: (o: Operation) => void;
 }) {
-  const [saisie, setSaisie] = useState("");
-  const montant = parseTokenOrNull(saisie);
+  const [input, setInput] = useState("");
+  const amount = parseTokenOrNull(input);
 
-  const depasse = montant !== null && surplus !== undefined && montant > surplus;
-  const pret = montant !== null && montant > 0n && !depasse;
+  const exceeds = amount !== null && surplus !== undefined && amount > surplus;
+  const ready = amount !== null && amount > 0n && !exceeds;
 
   return (
     <Panel title="Retirer du surplus">
@@ -195,8 +195,8 @@ function PanneauRetrait({
 
       <FormField label={`Montant à retirer (${TOKEN_SYMBOL}) — plafonné au surplus`} required>
         <Input
-          value={saisie}
-          onChange={(e) => setSaisie(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           inputMode="decimal"
           className="font-mono"
         />
@@ -209,7 +209,7 @@ function PanneauRetrait({
           disabled={surplus === undefined || surplus === 0n}
           onClick={() =>
             surplus !== undefined &&
-            setSaisie((Number(surplus) / 1e6).toFixed(2).replace(".", ","))
+            setInput((Number(surplus) / 1e6).toFixed(2).replace(".", ","))
           }
         >
           Maximum
@@ -219,7 +219,7 @@ function PanneauRetrait({
         </span>
       </div>
 
-      {depasse && (
+      {exceeds && (
         <FieldError className="mt-2">
           Au-delà du surplus : la réserve immobilisée protège les salaires à venir.
         </FieldError>
@@ -228,19 +228,19 @@ function PanneauRetrait({
       <Button
         block
         className="mt-4"
-        disabled={!pret}
+        disabled={!ready}
         onClick={() =>
-          onDemander({
-            titre: "Retirer du surplus",
+          onRequest({
+            title: "Retirer du surplus",
             code: "B6",
             message:
               "Ce retrait ne porte que sur la part excédant la réserve. Le contrat vérifiera lui-même que la réserve reste intacte.",
-            lignes: [{ label: "Montant", valeur: formatToken(montant!) }],
-            appels: [{ cible: "payroll", fonction: "withdraw", args: [montant!] }],
+            rows: [{ label: "Montant", value: formatToken(amount!) }],
+            calls: [{ target: "payroll", functionName: "withdraw", args: [amount!] }],
           })
         }
       >
-        Retirer {montant !== null ? formatToken(montant) : ""}
+        Retirer {amount !== null ? formatToken(amount) : ""}
       </Button>
     </Panel>
   );

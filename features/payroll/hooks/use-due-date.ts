@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParametres } from "./use-payroll";
+import { useSettings } from "./use-payroll";
 
 /**
  * Échéance de la prochaine paie.
@@ -12,34 +12,34 @@ import { useParametres } from "./use-payroll";
  * relevée au 6.4 du mémoire, où l'article 164 protège le salarié contre le
  * retard et le garde-temps, lui, contre l'avance.
  */
-export function useEcheance() {
-  const { intervalle, dernierePaie, cyclesReserves, enCours } = useParametres();
-  const [maintenant, setMaintenant] = useState(() => Math.floor(Date.now() / 1000));
+export function useDueDate() {
+  const { interval, lastPayroll, reservedCycles, busy } = useSettings();
+  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000));
 
   useEffect(() => {
-    const t = setInterval(() => setMaintenant(Math.floor(Date.now() / 1000)), 1000);
+    const t = setInterval(() => setNow(Math.floor(Date.now() / 1000)), 1000);
     return () => clearInterval(t);
   }, []);
 
-  const prochaine =
-    intervalle !== undefined && dernierePaie !== undefined
-      ? Number(dernierePaie + intervalle)
+  const next =
+    interval !== undefined && lastPayroll !== undefined
+      ? Number(lastPayroll + interval)
       : undefined;
 
-  const restant = prochaine !== undefined ? prochaine - maintenant : undefined;
+  const remaining = next !== undefined ? next - now : undefined;
 
   return {
-    enCours,
-    intervalle,
-    cyclesReserves,
-    dernierePaie,
+    busy,
+    interval,
+    reservedCycles,
+    lastPayroll,
     /** Horodatage, en secondes, à partir duquel `runPayroll()` cesse de rejeter. */
-    prochaine,
+    next,
     /** Secondes restantes ; négatif une fois l'échéance passée. */
-    restant,
+    remaining,
     /** Vrai dès que le garde-temps ne s'oppose plus à l'exécution. */
-    echue: restant !== undefined ? restant <= 0 : undefined,
+    isDue: remaining !== undefined ? remaining <= 0 : undefined,
     /** Depuis combien de temps la paie est exécutable sans l'avoir été. */
-    retard: restant !== undefined && restant < 0 ? -restant : 0,
+    delay: remaining !== undefined && remaining < 0 ? -remaining : 0,
   };
 }

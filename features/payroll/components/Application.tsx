@@ -5,35 +5,35 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAccount } from "wagmi";
 import { toast } from "sonner";
 import { CHAIN } from "@/lib/contracts/config";
-import AppShell, { type Ecran } from "./AppShell";
-import ConnexionEcran from "./ConnexionEcran";
-import SignatureEcran from "./SignatureEcran";
-import DialogueTransaction from "./DialogueTransaction";
+import AppShell, { type ScreenCode } from "./AppShell";
+import ConnectScreen from "./ConnectScreen";
+import SignInScreen from "./SignInScreen";
+import TransactionDialog from "./TransactionDialog";
 import { SkeletonRows } from "@/components/skeleton-rows";
 import { useRole } from "../hooks/use-payroll";
 import { useSession } from "../hooks/use-session";
-import { useMonte } from "../hooks/use-monte";
+import { useMounted } from "../hooks/use-mounted";
 import { useTransaction } from "../hooks/use-transaction";
-import { CHEMINS, ecranDepuisChemin } from "../routes";
+import { PATHS, screenFromPath } from "../routes";
 
-import VueEnsemble from "./employeur/VueEnsemble";
-import Salaries from "./employeur/Salaries";
-import Tresorerie from "./employeur/Tresorerie";
-import ExecutionPaie from "./employeur/ExecutionPaie";
-import Historique from "./employeur/Historique";
-import Parametres from "./employeur/Parametres";
+import Overview from "./employer/Overview";
+import Employees from "./employer/Employees";
+import Treasury from "./employer/Treasury";
+import PayrollRun from "./employer/PayrollRun";
+import PayrollHistory from "./employer/History";
+import Settings from "./employer/Settings";
 
-import { VueSalarie, MesVersements, MonProfil } from "./salarie/MonEspace";
-import MesBulletins from "./salarie/MesBulletins";
-import DeclencherPaie from "./salarie/DeclencherPaie";
+import { EmployeeView, MyPayments, MyProfile } from "./employee/MyOverview";
+import MyPayslips from "./employee/MyPayslips";
+import TriggerPayroll from "./employee/TriggerPayroll";
 
 export default function Application() {
   const { isConnected, chainId, status } = useAccount();
-  const { role, enCours } = useRole();
+  const { role, busy } = useRole();
   const session = useSession();
-  const monte = useMonte();
+  const mounted = useMounted();
   const router = useRouter();
-  const chemin = usePathname();
+  const path = usePathname();
 
   const tx = useTransaction();
 
@@ -43,12 +43,12 @@ export default function Application() {
    * l'historique, pour que « précédent » ne ramène pas sur une adresse morte.
    */
   useEffect(() => {
-    if (role && role !== "inconnu" && chemin === "/") {
-      router.replace(CHEMINS[role === "employeur" ? "B1" : "C1"]);
+    if (role && role !== "unknown" && path === "/") {
+      router.replace(PATHS[role === "employer" ? "B1" : "C1"]);
     }
-  }, [role, chemin, router]);
+  }, [role, path, router]);
 
-  if (!monte) return null;
+  if (!mounted) return null;
 
   /*
    * Au rechargement, wagmi rétablit la connexion au portefeuille de façon
@@ -57,7 +57,7 @@ export default function Application() {
    * moment-là revient à demander de se connecter à quelqu'un qui l'est déjà —
    * c'est le clignotement observé entre le rechargement et le tableau de bord.
    */
-  if (status === "reconnecting" || status === "connecting") return <Attente />;
+  if (status === "reconnecting" || status === "connecting") return <Waiting />;
 
   /*
    * L'écran de connexion passe avant toute attente : tant que le portefeuille
@@ -65,14 +65,14 @@ export default function Application() {
    * afficher un squelette reviendrait à faire patienter indéfiniment quelqu'un
    * qui doit d'abord agir — se connecter, ou basculer de réseau.
    */
-  if (!isConnected || chainId !== CHAIN.id) return <ConnexionEcran />;
+  if (!isConnected || chainId !== CHAIN.id) return <ConnectScreen />;
 
   if (!role) {
-    if (enCours) return <Attente />;
-    return <ConnexionEcran />;
+    if (busy) return <Waiting />;
+    return <ConnectScreen />;
   }
 
-  if (role === "inconnu") return <ConnexionEcran />;
+  if (role === "unknown") return <ConnectScreen />;
 
   /*
    * La session hors chaîne vient après le rôle, et non avant : le rôle se lit
@@ -81,47 +81,47 @@ export default function Application() {
    * ce serait lui faire payer une étape pour un espace auquel elle n'accède
    * pas.
    */
-  if (session.enCours) return <Attente texte="Vérification de la session…" />;
-  if (!session.active) return <SignatureEcran />;
+  if (session.busy) return <Waiting text="Vérification de la session…" />;
+  if (!session.active) return <SignInScreen />;
 
-  const demander = tx.demander;
-  const naviguer = (e: Ecran) => router.push(CHEMINS[e]);
-  const ecran = ecranDepuisChemin(chemin, role);
+  const requestOperation = tx.requestOperation;
+  const navigate = (e: ScreenCode) => router.push(PATHS[e]);
+  const currentScreen = screenFromPath(path, role);
 
   return (
     <>
-      <AppShell role={role} ecran={ecran} onNaviguer={naviguer}>
-        {role === "employeur" ? (
+      <AppShell role={role} screen={currentScreen} onNavigate={navigate}>
+        {role === "employer" ? (
           <>
-            {ecran === "B1" && <VueEnsemble onNaviguer={naviguer} />}
-            {(ecran === "B2" ||
-              ecran === "B3" ||
-              ecran === "B4" ||
-              ecran === "B5" ||
-              ecran === "B10") && <Salaries onDemander={demander} />}
-            {ecran === "B6" && <Tresorerie onDemander={demander} />}
-            {ecran === "B7" && <ExecutionPaie onDemander={demander} />}
-            {ecran === "B8" && <Historique />}
-            {ecran === "B9" && <Parametres onDemander={demander} />}
+            {currentScreen === "B1" && <Overview onNavigate={navigate} />}
+            {(currentScreen === "B2" ||
+              currentScreen === "B3" ||
+              currentScreen === "B4" ||
+              currentScreen === "B5" ||
+              currentScreen === "B10") && <Employees onRequest={requestOperation} />}
+            {currentScreen === "B6" && <Treasury onRequest={requestOperation} />}
+            {currentScreen === "B7" && <PayrollRun onRequest={requestOperation} />}
+            {currentScreen === "B8" && <PayrollHistory />}
+            {currentScreen === "B9" && <Settings onRequest={requestOperation} />}
           </>
         ) : (
           <>
-            {ecran === "C1" && <VueSalarie onNaviguer={naviguer} />}
-            {ecran === "C2" && <MesVersements />}
-            {ecran === "C3" && <MesBulletins />}
-            {ecran === "C4" && <MonProfil />}
-            {ecran === "C5" && <DeclencherPaie onDemander={demander} />}
+            {currentScreen === "C1" && <EmployeeView onNavigate={navigate} />}
+            {currentScreen === "C2" && <MyPayments />}
+            {currentScreen === "C3" && <MyPayslips />}
+            {currentScreen === "C4" && <MyProfile />}
+            {currentScreen === "C5" && <TriggerPayroll onRequest={requestOperation} />}
           </>
         )}
       </AppShell>
 
-      <DialogueTransaction
+      <TransactionDialog
         operation={tx.operation}
-        etat={tx.etat}
-        etapes={tx.etapes}
-        onFermer={tx.fermer}
-        onConfirmer={async () => {
-          const ok = await tx.executer();
+        state={tx.state}
+        steps={tx.steps}
+        onClose={tx.close}
+        onConfirm={async () => {
+          const ok = await tx.run();
           if (ok) toast.success("Opération confirmée par le réseau.");
         }}
       />
@@ -129,11 +129,11 @@ export default function Application() {
   );
 }
 
-function Attente({ texte = "Lecture du rôle sur la chaîne…" }: { texte?: string }) {
+function Waiting({ text = "Lecture du rôle sur la chaîne…" }: { text?: string }) {
   return (
     <main className="mx-auto grid max-w-md gap-3 p-10">
       <SkeletonRows rows={4} />
-      <p className="text-ink-2">{texte}</p>
+      <p className="text-ink-2">{text}</p>
     </main>
   );
 }

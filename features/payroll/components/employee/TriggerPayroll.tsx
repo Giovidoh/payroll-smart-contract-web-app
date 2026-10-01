@@ -7,42 +7,42 @@ import { SkeletonRows } from "@/components/skeleton-rows";
 import { Button } from "@/components/ui/button";
 import { DetailList, DetailItem, DetailTotal } from "@/components/detail-list";
 import { Hint } from "@/components/hint";
-import { useMonEspace } from "../../hooks/use-mon-espace";
-import { useEcheance } from "../../hooks/use-echeance";
+import { useMyAccount } from "../../hooks/use-my-account";
+import { useDueDate } from "../../hooks/use-due-date";
 import type { Operation } from "../../hooks/use-transaction";
 
-export default function DeclencherPaie({
-  onDemander,
+export default function TriggerPayroll({
+  onRequest,
 }: {
-  onDemander: (o: Operation) => void;
+  onRequest: (o: Operation) => void;
 }) {
-  const { masse, soldeContrat, provisionSuffisante, salaire, reserveEntamee } =
-    useMonEspace();
-  const { restant, echue, prochaine, retard } = useEcheance();
+  const { payrollTotal, contractBalance, sufficientlyFunded, salary, reserveBreached } =
+    useMyAccount();
+  const { remaining, isDue, next, delay } = useDueDate();
 
-  const executable = echue === true && provisionSuffisante === true;
+  const canRun = isDue === true && sufficientlyFunded === true;
 
   return (
     <>
-      {echue === undefined ? (
+      {isDue === undefined ? (
         <SkeletonRows rows={1} />
-      ) : !echue ? (
+      ) : !isDue ? (
         <Alert tone="neutral" title="La paie n'est pas encore exigible.">
           Le contrat refusera toute exécution pendant{" "}
-          {restant !== undefined ? formatCountdown(restant) : "…"}, jusqu&apos;au{" "}
-          {prochaine !== undefined ? formatDateTime(prochaine) : "…"}.
+          {remaining !== undefined ? formatCountdown(remaining) : "…"}, jusqu&apos;au{" "}
+          {next !== undefined ? formatDateTime(next) : "…"}.
         </Alert>
-      ) : !provisionSuffisante ? (
+      ) : !sufficientlyFunded ? (
         <Alert tone="err" title="La paie est exigible mais le contrat n'est pas provisionné.">
-          Il détient {soldeContrat !== undefined ? formatToken(soldeContrat) : "…"} pour
+          Il détient {contractBalance !== undefined ? formatToken(contractBalance) : "…"} pour
           une masse salariale de{" "}
-          {masse !== undefined ? formatToken(masse) : "un montant indéterminé"}. Seul
+          {payrollTotal !== undefined ? formatToken(payrollTotal) : "un montant indéterminé"}. Seul
           l&apos;employeur peut
           l&apos;approvisionner ; le déclenchement échouerait.
         </Alert>
       ) : (
         <Alert tone="ok" title="Vous pouvez déclencher la paie.">
-          L&apos;échéance est passée depuis {formatCountdown(retard) ?? "peu"} et la
+          L&apos;échéance est passée depuis {formatCountdown(delay) ?? "peu"} et la
           provision couvre la masse salariale.
         </Alert>
       )}
@@ -70,18 +70,18 @@ export default function DeclencherPaie({
       <Panel title="État de la trésorerie">
         <DetailList>
           <DetailItem label="Solde du contrat">
-            {soldeContrat !== undefined ? formatToken(soldeContrat) : "…"}
+            {contractBalance !== undefined ? formatToken(contractBalance) : "…"}
           </DetailItem>
           <DetailItem label="Masse salariale à verser">
-            {masse !== undefined ? formatToken(masse) : "indisponible"}
+            {payrollTotal !== undefined ? formatToken(payrollTotal) : "indisponible"}
           </DetailItem>
           <DetailTotal label="Dont pour vous">
-            {salaire !== undefined ? formatToken(salaire) : "…"}
+            {salary !== undefined ? formatToken(salary) : "…"}
           </DetailTotal>
         </DetailList>
 
         <Hint className="mt-3">
-          {reserveEntamee
+          {reserveBreached
             ? "Le contrat ne détient même pas de quoi couvrir la réserve : il est sous-provisionné, et la masse salariale n'est pas calculable de votre côté."
             : "Vous n'avez pas accès à la liste des bénéficiaires, que le contrat réserve à son propriétaire. La masse salariale affichée ici est déduite du solde, du surplus retirable et du nombre de cycles réservés, tous trois publics."}
         </Hint>
@@ -90,24 +90,24 @@ export default function DeclencherPaie({
           size="lg"
           block
           className="mt-4"
-          disabled={!executable}
+          disabled={!canRun}
           onClick={() =>
-            onDemander({
-              titre: "Déclencher la paie",
+            onRequest({
+              title: "Déclencher la paie",
               code: "C5",
               message:
                 "Vous déclenchez le versement de l'ensemble des salaires. Les fonds sont ceux du contrat ; vous n'avancez que les frais de réseau.",
-              lignes: [
+              rows: [
                 {
                   label: "Total versé",
-                  valeur: masse !== undefined ? formatToken(masse) : "—",
+                  value: payrollTotal !== undefined ? formatToken(payrollTotal) : "—",
                 },
                 {
                   label: "Dont pour vous",
-                  valeur: salaire !== undefined ? formatToken(salaire) : "—",
+                  value: salary !== undefined ? formatToken(salary) : "—",
                 },
               ],
-              appels: [{ cible: "payroll", fonction: "runPayroll", args: [] }],
+              calls: [{ target: "payroll", functionName: "runPayroll", args: [] }],
             })
           }
         >

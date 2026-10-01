@@ -15,46 +15,46 @@ import { EmptyState } from "@/components/empty-state";
 import { LogsReadError } from "../LogsReadError";
 import { SkeletonRows } from "@/components/skeleton-rows";
 import { TxLink } from "@/components/explorer-link";
-import { useSalaries, useTresorerie } from "../../hooks/use-payroll";
-import { useEcheance } from "../../hooks/use-echeance";
+import { useEmployees, useTreasury } from "../../hooks/use-payroll";
+import { useDueDate } from "../../hooks/use-due-date";
 import { Button } from "@/components/ui/button";
 import { DetailList, DetailItem, DetailTotal } from "@/components/detail-list";
 import { Hint } from "@/components/hint";
 import { EventBadge } from "../EventBadge";
 import { CountdownFigure } from "../CountdownFigure";
-import { useEvenements, type Evenement } from "../../hooks/use-events";
-import { useFiches, nomAffiche, type Fiche } from "../../hooks/use-directory";
-import type { Ecran } from "../AppShell";
+import { useEvents, type PayrollEvent } from "../../hooks/use-events";
+import { useRecords, displayName, type EmployeeRecord } from "../../hooks/use-directory";
+import type { ScreenCode } from "../AppShell";
 
-export default function VueEnsemble({
-  onNaviguer,
+export default function Overview({
+  onNavigate,
 }: {
-  onNaviguer: (e: Ecran) => void;
+  onNavigate: (e: ScreenCode) => void;
 }) {
   const { address } = useAccount();
-  const { data: salaries } = useSalaries();
-  const { solde, surplus, reserve, masse } = useTresorerie({ estProprietaire: true });
-  const { restant, echue, prochaine, dernierePaie, intervalle, cyclesReserves } =
-    useEcheance();
-  const { data: evenements, isLoading, isError } = useEvenements();
-  const fiches = useFiches();
+  const { data: employees } = useEmployees();
+  const { balance, surplus, reserve, payrollTotal } = useTreasury({ isOwner: true });
+  const { remaining, isDue, next, lastPayroll, interval, reservedCycles } =
+    useDueDate();
+  const { data: events, isLoading, isError } = useEvents();
+  const records = useRecords();
 
-  const effectif = salaries?.length ?? 0;
-  const provisionSuffisante =
-    solde !== undefined && masse !== undefined ? solde >= masse : undefined;
+  const headcount = employees?.length ?? 0;
+  const sufficientlyFunded =
+    balance !== undefined && payrollTotal !== undefined ? balance >= payrollTotal : undefined;
 
-  const dernierCycle = useMemo(
-    () => evenements?.find((e) => e.type === "PayrollCompleted"),
-    [evenements]
+  const lastCycle = useMemo(
+    () => events?.find((e) => e.type === "PayrollCompleted"),
+    [events]
   );
 
 
-  const recents = evenements?.slice(0, 5) ?? [];
+  const recent = events?.slice(0, 5) ?? [];
 
   return (
     <>
-      {echue === undefined ? null : echue ? (
-        provisionSuffisante ? (
+      {isDue === undefined ? null : isDue ? (
+        sufficientlyFunded ? (
           <Alert tone="ok" title="La paie est exécutable.">
             Le garde-temps ne s&apos;y oppose plus et la provision couvre la masse
             salariale.
@@ -73,21 +73,21 @@ export default function VueEnsemble({
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Effectif inscrit"
-          value={effectif}
-          hint={effectif === 0 ? "Aucun salarié" : "salariés en chaîne"}
+          value={headcount}
+          hint={headcount === 0 ? "Aucun salarié" : "salariés en chaîne"}
         />
         <StatCard
           label="Masse salariale"
-          value={masse !== undefined ? formatToken(masse, false) : "…"}
+          value={payrollTotal !== undefined ? formatToken(payrollTotal, false) : "…"}
           hint="par cycle"
         />
         <StatCard
           label="Solde du contrat"
-          value={solde !== undefined ? formatToken(solde, false) : "…"}
+          value={balance !== undefined ? formatToken(balance, false) : "…"}
           hint={
-            provisionSuffisante === undefined
+            sufficientlyFunded === undefined
               ? undefined
-              : provisionSuffisante
+              : sufficientlyFunded
                 ? "provision suffisante"
                 : "provision insuffisante"
           }
@@ -96,8 +96,8 @@ export default function VueEnsemble({
           label="Surplus retirable"
           value={surplus !== undefined ? formatToken(surplus, false) : "…"}
           hint={
-            cyclesReserves !== undefined
-              ? `${cyclesReserves} cycles immobilisés`
+            reservedCycles !== undefined
+              ? `${reservedCycles} cycles immobilisés`
               : undefined
           }
         />
@@ -105,28 +105,28 @@ export default function VueEnsemble({
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Prochaine paie">
-          <CountdownFigure remaining={restant} whenDue="exécutable maintenant" />
+          <CountdownFigure remaining={remaining} whenDue="exécutable maintenant" />
           <p className="mt-1.5 text-ink-2">
-            {prochaine !== undefined && intervalle !== undefined && (
+            {next !== undefined && interval !== undefined && (
               <>
-                Éligible le {formatDateTime(prochaine)} · intervalle de{" "}
-                {formatInterval(intervalle)}
+                Éligible le {formatDateTime(next)} · intervalle de{" "}
+                {formatInterval(interval)}
               </>
             )}
           </p>
 
           <DetailList className="mt-4 border-t border-line pt-3">
             <DetailItem label="Dernière paie">
-              {dernierePaie ? formatDateTime(dernierePaie) : "—"}
+              {lastPayroll ? formatDateTime(lastPayroll) : "—"}
             </DetailItem>
             <DetailItem label="Dernier cycle observé">
-              {dernierCycle
-                ? `${dernierCycle.effectif} salariés · ${formatToken(dernierCycle.montant!)}`
+              {lastCycle
+                ? `${lastCycle.headcount} salariés · ${formatToken(lastCycle.amount!)}`
                 : "aucun"}
             </DetailItem>
           </DetailList>
 
-          <Button size="lg" block className="mt-4 px-3" onClick={() => onNaviguer("B7")}>
+          <Button size="lg" block className="mt-4 px-3" onClick={() => onNavigate("B7")}>
             Préparer l&apos;exécution de la paie
           </Button>
         </Panel>
@@ -134,19 +134,19 @@ export default function VueEnsemble({
         <Panel
           title="Trésorerie"
           action={
-            <Button variant="secondary" size="sm" onClick={() => onNaviguer("B6")}>
+            <Button variant="secondary" size="sm" onClick={() => onNavigate("B6")}>
               Gérer
             </Button>
           }
         >
-          <BarreTresorerie solde={solde} reserve={reserve} surplus={surplus} />
+          <TreasuryBar balance={balance} reserve={reserve} surplus={surplus} />
         </Panel>
       </div>
 
       <Panel
         title="Événements récents"
         action={
-          <Button variant="secondary" size="sm" onClick={() => onNaviguer("B8")}>
+          <Button variant="secondary" size="sm" onClick={() => onNavigate("B8")}>
             Tout l&apos;historique
           </Button>
         }
@@ -155,7 +155,7 @@ export default function VueEnsemble({
           <SkeletonRows />
         ) : isError ? (
           <LogsReadError />
-        ) : recents.length === 0 ? (
+        ) : recent.length === 0 ? (
           <EmptyState title="Aucun événement">
             Le contrat n&apos;a encore rien enregistré, ou les journaux consultés ne
             remontent pas jusqu&apos;à son déploiement.
@@ -171,8 +171,8 @@ export default function VueEnsemble({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {recents.map((e) => (
-                <LigneEvenement key={`${e.hash}-${e.logIndex}`} e={e} fiches={fiches} />
+              {recent.map((e) => (
+                <EventRow key={`${e.hash}-${e.logIndex}`} e={e} records={records} />
               ))}
             </TableBody>
           </Table>
@@ -182,18 +182,18 @@ export default function VueEnsemble({
   );
 }
 
-function LigneEvenement({
+function EventRow({
   e,
-  fiches,
+  records,
 }: {
-  e: Evenement;
-  fiches: Record<string, Fiche>;
+  e: PayrollEvent;
+  records: Record<string, EmployeeRecord>;
 }) {
   const detail =
     e.type === "PayrollCompleted"
-      ? `${e.effectif} salariés payés`
-      : e.sujet
-        ? nomAffiche(fiches[e.sujet.toLowerCase()], e.sujet)
+      ? `${e.headcount} salariés payés`
+      : e.subject
+        ? displayName(records[e.subject.toLowerCase()], e.subject)
         : "—";
 
   return (
@@ -206,26 +206,26 @@ function LigneEvenement({
       </TableCell>
       <TableCell className="text-ink-2">{detail}</TableCell>
       <TableCell align="right" className="whitespace-nowrap font-mono">
-        {e.montant !== undefined ? formatToken(e.montant) : "—"}
+        {e.amount !== undefined ? formatToken(e.amount) : "—"}
       </TableCell>
     </TableRow>
   );
 }
 
-function BarreTresorerie({
-  solde,
+function TreasuryBar({
+  balance,
   reserve,
   surplus,
 }: {
-  solde?: bigint;
+  balance?: bigint;
   reserve?: bigint;
   surplus?: bigint;
 }) {
-  if (solde === undefined || reserve === undefined || surplus === undefined) {
+  if (balance === undefined || reserve === undefined || surplus === undefined) {
     return <SkeletonRows rows={3} />;
   }
 
-  const total = solde === 0n ? 1n : solde;
+  const total = balance === 0n ? 1n : balance;
   const pctReserve = Number((reserve * 100n) / total);
 
   return (
@@ -238,19 +238,19 @@ function BarreTresorerie({
       <DetailList className="mt-3">
         <DetailItem
           className="items-center"
-          label={<Legende pastille="bg-primary">Réserve immobilisée</Legende>}
+          label={<LegendLabel swatch="bg-primary">Réserve immobilisée</LegendLabel>}
         >
           {formatToken(reserve)}
         </DetailItem>
         <DetailItem
           className="items-center"
           label={
-            <Legende pastille="border border-line-2 bg-surface-3">Surplus retirable</Legende>
+            <LegendLabel swatch="border border-line-2 bg-surface-3">Surplus retirable</LegendLabel>
           }
         >
           {formatToken(surplus)}
         </DetailItem>
-        <DetailTotal label="Solde total">{formatToken(solde)}</DetailTotal>
+        <DetailTotal label="Solde total">{formatToken(balance)}</DetailTotal>
       </DetailList>
 
       <Hint className="mt-3">
@@ -262,10 +262,10 @@ function BarreTresorerie({
 }
 
 /** Libellé précédé d'une pastille à la couleur de sa part dans la barre. */
-function Legende({ pastille, children }: { pastille: string; children: React.ReactNode }) {
+function LegendLabel({ swatch, children }: { swatch: string; children: React.ReactNode }) {
   return (
     <span className="flex items-center gap-2 text-foreground">
-      <span className={`inline-block size-2.5 ${pastille}`} />
+      <span className={`inline-block size-2.5 ${swatch}`} />
       {children}
     </span>
   );

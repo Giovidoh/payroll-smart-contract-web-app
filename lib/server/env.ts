@@ -6,18 +6,18 @@ import "server-only";
  * clef du fournisseur RPC, qui y figure nécessairement puisque c'est le client
  * qui lit la chaîne.
  */
-function requis(nom: string): string {
-  const v = process.env[nom];
+function required(lastName: string): string {
+  const v = process.env[lastName];
   if (!v) {
     throw new Error(
-      `Variable d'environnement ${nom} absente. Renseignez-la dans .env.local ` +
+      `Variable d'environnement ${lastName} absente. Renseignez-la dans .env.local ` +
         `(voir .env.example).`
     );
   }
   return v;
 }
 
-export const DATABASE_URL = requis("DATABASE_URL");
+export const DATABASE_URL = required("DATABASE_URL");
 
 /**
  * Domaine attendu dans le message EIP-4361, par exemple `localhost:3000`.
@@ -28,13 +28,13 @@ export const DATABASE_URL = requis("DATABASE_URL");
  * demander de se contrôler lui-même, et une signature obtenue sur un site
  * d'hameçonnage serait acceptée ici.
  */
-export const AUTH_DOMAIN = requis("AUTH_DOMAIN");
+export const AUTH_DOMAIN = required("AUTH_DOMAIN");
 
 /**
  * Clef de signature du cookie de session. Une valeur changée invalide toutes les
  * sessions en cours, ce qui est le comportement recherché.
  */
-export const SESSION_SECRET = requis("SESSION_SECRET");
+export const SESSION_SECRET = required("SESSION_SECRET");
 
 /** Durée de validité d'une session, en secondes. */
 export const SESSION_TTL = 60 * 60 * 8;

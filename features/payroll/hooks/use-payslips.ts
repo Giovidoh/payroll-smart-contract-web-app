@@ -2,9 +2,9 @@
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { useFiches, type Fiche } from "./use-directory";
+import { useRecords, type EmployeeRecord } from "./use-directory";
 import { useSession } from "./use-session";
-import { engendrerBulletin, nomFichierBulletin } from "../lib/bulletin";
+import { generatePayslip, payslipFileName } from "../lib/payslip";
 
 /**
  * Production des bulletins et tenue du registre.
@@ -19,59 +19,59 @@ import { engendrerBulletin, nomFichierBulletin } from "../lib/bulletin";
  * contre quelle inscription — le couple (hachage, index de journal), puisqu'une
  * exécution de la paie verse à tous les salariés dans une transaction unique.
  */
-export type Versement = {
-  adresse: string;
-  montant: bigint;
+export type Payment = {
+  address: string;
+  amount: bigint;
   date: bigint;
   hash: string;
   logIndex: number;
 };
 
-const CLEF = ["registre"] as const;
+const KEY = ["payslipRegistry"] as const;
 
-type LigneRegistre = {
-  adresse_ethereum: string;
-  hash_transaction: string;
-  numero_log: number;
-  date_emission: string;
+type RegistryRow = {
+  address: string;
+  txHash: string;
+  logIndex: number;
+  issuedAt: string;
 };
 
-async function json<T>(chemin: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(chemin, {
+async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(path, {
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
   });
-  const corps = (await r.json().catch(() => null)) as (T & { erreur?: string }) | null;
-  if (!r.ok) throw new Error(corps?.erreur ?? `Le serveur a répondu ${r.status}.`);
-  return corps as T;
+  const body = (await r.json().catch(() => null)) as (T & { error?: string }) | null;
+  if (!r.ok) throw new Error(body?.error ?? `Le serveur a répondu ${r.status}.`);
+  return body as T;
 }
 
 /** Repère d'une ligne du registre, stable entre les deux sources. */
-const repere = (hash: string, logIndex: number) => `${hash.toLowerCase()}-${logIndex}`;
+const logKey = (hash: string, logIndex: number) => `${hash.toLowerCase()}-${logIndex}`;
 
 /** Registre des bulletins déjà émis, pour l'appelant et selon ses droits. */
-export function useRegistre() {
+export function usePayslipRegistry() {
   const { active } = useSession();
 
-  const requete = useQuery({
-    queryKey: CLEF,
+  const request = useQuery({
+    queryKey: KEY,
     queryFn: async (): Promise<Set<string>> => {
-      const { bulletins } = await json<{ bulletins: LigneRegistre[] }>("/api/payslips");
-      return new Set(bulletins.map((b) => repere(b.hash_transaction, b.numero_log)));
+      const { payslips } = await json<{ payslips: RegistryRow[] }>("/api/payslips");
+      return new Set(payslips.map((b) => logKey(b.txHash, b.logIndex)));
     },
     enabled: active,
     retry: false,
   });
 
   return {
-    emis: requete.data ?? new Set<string>(),
-    enCours: requete.isLoading,
-    echec: requete.isError,
+    issued: request.data ?? new Set<string>(),
+    busy: request.isLoading,
+    failure: request.isError,
   };
 }
 
-export function useEmettreBulletin() {
-  const fiches = useFiches();
+export function useIssuePayslip() {
+  const records = useRecords();
   const qc = useQueryClient();
 
   /**
@@ -81,24 +81,24 @@ export function useEmettreBulletin() {
    * tu — un registre incomplet est un manquement distinct, et le masquer
    * reviendrait à croire tenu ce qui ne l'est pas.
    */
-  return async (v: Versement): Promise<void> => {
-    const fiche: Fiche | undefined = fiches[v.adresse.toLowerCase()];
+  return async (v: Payment): Promise<void> => {
+    const record: EmployeeRecord | undefined = records[v.address.toLowerCase()];
 
     try {
-      const donnees = {
-        salarie: fiche,
-        adresse: v.adresse,
-        montant: v.montant,
+      const payslipData = {
+        employee: record,
+        address: v.address,
+        amount: v.amount,
         date: v.date,
         hash: v.hash,
       };
-      engendrerBulletin(donnees).save(nomFichierBulletin(donnees));
+      generatePayslip(payslipData).save(payslipFileName(payslipData));
     } catch {
       toast.error("La génération du bulletin a échoué.");
       return;
     }
 
-    if (!fiche) {
+    if (!record) {
       /*
        * La chaîne paie des adresses, pas des personnes. Un versement vers une
        * adresse dont l'identité n'est pas renseignée produit un bulletin sans
@@ -114,12 +114,12 @@ export function useEmettreBulletin() {
       await json("/api/payslips", {
         method: "POST",
         body: JSON.stringify({
-          adresse: v.adresse,
+          address: v.address,
           hash: v.hash,
-          numeroLog: v.logIndex,
+          logIndex: v.logIndex,
         }),
       });
-      qc.invalidateQueries({ queryKey: CLEF });
+      qc.invalidateQueries({ queryKey: KEY });
     } catch (e) {
       toast.error(
         `Bulletin remis, mais non inscrit au registre : ${(e as Error).message}`
@@ -128,4 +128,4 @@ export function useEmettreBulletin() {
   };
 }
 
-export { repere };
+export { logKey };

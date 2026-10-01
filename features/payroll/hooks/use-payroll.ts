@@ -16,13 +16,13 @@ const payroll = {
   chainId: CHAIN.id,
 } as const;
 
-const jeton = { abi: erc20Abi, address: TOKEN_ADDRESS, chainId: CHAIN.id } as const;
+const token = { abi: erc20Abi, address: TOKEN_ADDRESS, chainId: CHAIN.id } as const;
 
 /** Rafraîchissement : la chaîne bouge sans nous prévenir. */
-const VEILLE = { query: { refetchInterval: 12_000 } } as const;
+const STANDBY = { query: { refetchInterval: 12_000 } } as const;
 
 export function useOwner() {
-  return useReadContract({ ...payroll, functionName: "owner", ...VEILLE });
+  return useReadContract({ ...payroll, functionName: "owner", ...STANDBY });
 }
 
 /**
@@ -30,13 +30,13 @@ export function useOwner() {
  * `inconnu` : connecté, mais ni propriétaire ni salarié — l'employeur ne l'a pas
  * encore inscrit.
  */
-export type Role = "employeur" | "salarie" | "inconnu";
+export type Role = "employer" | "employee" | "unknown";
 
-export function useRole(): { role: Role | undefined; enCours: boolean } {
+export function useRole(): { role: Role | undefined; busy: boolean } {
   const { address } = useAccount();
   const { data: owner, isLoading: l1 } = useOwner();
 
-  const estProprietaire =
+  const isOwner =
     Boolean(owner) && Boolean(address) && address!.toLowerCase() === owner!.toLowerCase();
 
   /*
@@ -46,7 +46,7 @@ export function useRole(): { role: Role | undefined; enCours: boolean } {
    * précisément l'intéressé : elle aboutit s'il est salarié et rejette avec
    * `Payroll__EmployeeDoesNotExist` sinon.
    */
-  const ficheActive = Boolean(address) && !estProprietaire;
+  const activeRecord = Boolean(address) && !isOwner;
 
   const {
     isSuccess,
@@ -66,7 +66,7 @@ export function useRole(): { role: Role | undefined; enCours: boolean } {
      */
     account: address,
     query: {
-      enabled: ficheActive,
+      enabled: activeRecord,
       retry: false,
       refetchInterval: 12_000,
     },
@@ -80,18 +80,18 @@ export function useRole(): { role: Role | undefined; enCours: boolean } {
    * garde la mémoire de ces refus, là où `isError` ne vaut que dans l'intervalle
    * entre deux tentatives.
    */
-  const dejaRefusee = m2 > 0;
+  const alreadyRejected = m2 > 0;
 
-  if (!address) return { role: undefined, enCours: false };
-  if (l1) return { role: undefined, enCours: true };
-  if (estProprietaire) return { role: "employeur", enCours: false };
-  if (isSuccess) return { role: "salarie", enCours: false };
-  if (isError || dejaRefusee) return { role: "inconnu", enCours: false };
-  return { role: undefined, enCours: l2 || ficheActive };
+  if (!address) return { role: undefined, busy: false };
+  if (l1) return { role: undefined, busy: true };
+  if (isOwner) return { role: "employer", busy: false };
+  if (isSuccess) return { role: "employee", busy: false };
+  if (isError || alreadyRejected) return { role: "unknown", busy: false };
+  return { role: undefined, busy: l2 || activeRecord };
 }
 
 /** Paramètres immuables du contrat : intervalle et nombre de cycles réservés. */
-export function useParametres() {
+export function useSettings() {
   const { data, isLoading } = useReadContracts({
     contracts: [
       { ...payroll, functionName: "getPayrollInterval" },
@@ -102,10 +102,10 @@ export function useParametres() {
   });
 
   return {
-    enCours: isLoading,
-    intervalle: data?.[0]?.result as bigint | undefined,
-    cyclesReserves: data?.[1]?.result as bigint | undefined,
-    dernierePaie: data?.[2]?.result as bigint | undefined,
+    busy: isLoading,
+    interval: data?.[0]?.result as bigint | undefined,
+    reservedCycles: data?.[1]?.result as bigint | undefined,
+    lastPayroll: data?.[2]?.result as bigint | undefined,
   };
 }
 
@@ -115,42 +115,42 @@ export function useParametres() {
  * est le propriétaire, sinon l'appel échoue et pollue l'interface d'une erreur
  * qui n'en est pas une.
  */
-export function useTresorerie({ estProprietaire }: { estProprietaire: boolean }) {
+export function useTreasury({ isOwner }: { isOwner: boolean }) {
   const { address } = useAccount();
-  const actif = estProprietaire && Boolean(address);
+  const active = isOwner && Boolean(address);
 
-  const veille = { enabled: actif, retry: false, refetchInterval: 12_000 } as const;
+  const standby = { enabled: active, retry: false, refetchInterval: 12_000 } as const;
 
-  const { data: solde, isLoading: c1, refetch } = useReadContract({
-    ...jeton,
+  const { data: balance, isLoading: c1, refetch } = useReadContract({
+    ...token,
     functionName: "balanceOf",
     args: [PAYROLL_ADDRESS],
-    query: { enabled: actif, refetchInterval: 12_000 },
+    query: { enabled: active, refetchInterval: 12_000 },
   });
 
   const { data: surplus, isLoading: c2 } = useReadContract({
     ...payroll,
     functionName: "getAvailableAmountForWithdrawal",
     account: address,
-    query: veille,
+    query: standby,
   });
 
-  const { data: masse, isLoading: c3 } = useReadContract({
+  const { data: payrollTotal, isLoading: c3 } = useReadContract({
     ...payroll,
     functionName: "getTotalSalaries",
     account: address,
-    query: veille,
+    query: standby,
   });
 
   return {
-    enCours: c1 || c2 || c3,
+    busy: c1 || c2 || c3,
     refetch,
-    solde,
+    balance,
     surplus,
-    masse,
+    payrollTotal,
     /** Part immobilisée par la réserve de cycles, non retirable par l'employeur. */
     reserve:
-      solde !== undefined && surplus !== undefined ? solde - surplus : undefined,
+      balance !== undefined && surplus !== undefined ? balance - surplus : undefined,
   };
 }
 
@@ -158,14 +158,14 @@ export function useTresorerie({ estProprietaire }: { estProprietaire: boolean })
  * Liste des salariés. `getAllEmployees()` est `onlyOwner` : elle *revert* pour
  * toute autre adresse. Réservée donc aux écrans de l'employeur.
  */
-export function useSalaries({ actif = true }: { actif?: boolean } = {}) {
+export function useEmployees({ active = true }: { active?: boolean } = {}) {
   const { address } = useAccount();
   return useReadContract({
     ...payroll,
     functionName: "getAllEmployees",
     account: address,
     query: {
-      enabled: actif && Boolean(address),
+      enabled: active && Boolean(address),
       retry: false,
       refetchInterval: 12_000,
     },
@@ -177,15 +177,15 @@ export function useSalaries({ actif = true }: { actif?: boolean } = {}) {
  * L'appel porte donc le `from` de l'adresse connectée, sans quoi le contrat le
  * rejette quelle que soit la fiche demandée.
  */
-export function useSalarie(address: Address | undefined) {
-  const { address: appelant } = useAccount();
+export function useEmployee(address: Address | undefined) {
+  const { address: caller } = useAccount();
   return useReadContract({
     ...payroll,
     functionName: "getEmployee",
     args: address ? [address] : undefined,
-    account: appelant,
+    account: caller,
     query: {
-      enabled: Boolean(address) && Boolean(appelant),
+      enabled: Boolean(address) && Boolean(caller),
       retry: false,
       refetchInterval: 12_000,
     },
@@ -193,9 +193,9 @@ export function useSalarie(address: Address | undefined) {
 }
 
 /** Solde du jeton détenu par une adresse quelconque (l'employeur, par exemple). */
-export function useSoldeJeton(address: Address | undefined) {
+export function useTokenBalance(address: Address | undefined) {
   return useReadContract({
-    ...jeton,
+    ...token,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
     query: { enabled: Boolean(address), refetchInterval: 12_000 },
@@ -203,11 +203,11 @@ export function useSoldeJeton(address: Address | undefined) {
 }
 
 /** Autorisation accordée par l'employeur au contrat pour prélever le jeton. */
-export function useAutorisation(proprietaire: Address | undefined) {
+export function useAllowance(readOwner: Address | undefined) {
   return useReadContract({
-    ...jeton,
+    ...token,
     functionName: "allowance",
-    args: proprietaire ? [proprietaire, PAYROLL_ADDRESS] : undefined,
-    query: { enabled: Boolean(proprietaire), refetchInterval: 12_000 },
+    args: readOwner ? [readOwner, PAYROLL_ADDRESS] : undefined,
+    query: { enabled: Boolean(readOwner), refetchInterval: 12_000 },
   });
 }

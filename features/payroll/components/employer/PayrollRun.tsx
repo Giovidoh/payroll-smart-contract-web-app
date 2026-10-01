@@ -14,49 +14,49 @@ import { SkeletonRows } from "@/components/skeleton-rows";
 import { AddressLink, TxLink } from "@/components/explorer-link";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
-import { useSalaries, useTresorerie } from "../../hooks/use-payroll";
-import { useEcheance } from "../../hooks/use-echeance";
-import { useEvenements } from "../../hooks/use-events";
-import { useFiches, nomAffiche } from "../../hooks/use-directory";
+import { useEmployees, useTreasury } from "../../hooks/use-payroll";
+import { useDueDate } from "../../hooks/use-due-date";
+import { useEvents } from "../../hooks/use-events";
+import { useRecords, displayName } from "../../hooks/use-directory";
 import type { Operation } from "../../hooks/use-transaction";
 
-export default function ExecutionPaie({
-  onDemander,
+export default function PayrollRun({
+  onRequest,
 }: {
-  onDemander: (o: Operation) => void;
+  onRequest: (o: Operation) => void;
 }) {
-  const { data: salaries, isLoading } = useSalaries();
-  const { solde, masse } = useTresorerie({ estProprietaire: true });
-  const { restant, echue, prochaine } = useEcheance();
-  const { data: evenements, isError: echecJournaux } = useEvenements();
-  const fiches = useFiches();
+  const { data: employees, isLoading } = useEmployees();
+  const { balance, payrollTotal } = useTreasury({ isOwner: true });
+  const { remaining, isDue, next } = useDueDate();
+  const { data: events, isError: logsFailure } = useEvents();
+  const records = useRecords();
 
-  const effectif = salaries?.length ?? 0;
-  const provisionne = solde !== undefined && masse !== undefined && solde >= masse;
-  const executable = echue === true && provisionne && effectif > 0;
+  const headcount = employees?.length ?? 0;
+  const funded = balance !== undefined && payrollTotal !== undefined && balance >= payrollTotal;
+  const canRun = isDue === true && funded && headcount > 0;
 
-  const cycles = (evenements ?? [])
+  const cycles = (events ?? [])
     .filter((e) => e.type === "PayrollCompleted")
     .slice(0, 3);
 
   return (
     <>
-      {echue === undefined ? (
+      {isDue === undefined ? (
         <SkeletonRows rows={1} />
-      ) : !echue ? (
+      ) : !isDue ? (
         <Alert tone="warn" title="Le garde-temps s'y oppose encore.">
           Le contrat rejettera toute exécution pendant{" "}
-          {restant !== undefined ? formatCountdown(restant) : "…"} — jusqu&apos;au{" "}
-          {prochaine !== undefined ? formatDateTime(prochaine) : "…"}.
+          {remaining !== undefined ? formatCountdown(remaining) : "…"} — jusqu&apos;au{" "}
+          {next !== undefined ? formatDateTime(next) : "…"}.
         </Alert>
-      ) : effectif === 0 ? (
+      ) : headcount === 0 ? (
         <Alert tone="warn" title="Aucun bénéficiaire.">
           La liste des salariés est vide : une exécution ne verserait rien.
         </Alert>
-      ) : !provisionne ? (
+      ) : !funded ? (
         <Alert tone="err" title="Provision insuffisante.">
-          Le contrat détient {solde !== undefined ? formatToken(solde) : "…"} pour une
-          masse salariale de {masse !== undefined ? formatToken(masse) : "…"}. Le
+          Le contrat détient {balance !== undefined ? formatToken(balance) : "…"} pour une
+          masse salariale de {payrollTotal !== undefined ? formatToken(payrollTotal) : "…"}. Le
           versement est atomique : il échouerait entièrement plutôt que partiellement.
         </Alert>
       ) : (
@@ -66,10 +66,10 @@ export default function ExecutionPaie({
         </Alert>
       )}
 
-      <Panel title={`Bénéficiaires de cette exécution (${effectif})`}>
+      <Panel title={`Bénéficiaires de cette exécution (${headcount})`}>
         {isLoading ? (
           <SkeletonRows rows={5} />
-        ) : effectif === 0 ? (
+        ) : headcount === 0 ? (
           <EmptyState title="Aucun salarié inscrit" />
         ) : (
           <Table>
@@ -81,10 +81,10 @@ export default function ExecutionPaie({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {salaries!.map((e) => (
+              {employees!.map((e) => (
                 <TableRow key={e.employeeAddress}>
                   <TableCell className="font-medium">
-                    {nomAffiche(fiches[e.employeeAddress.toLowerCase()], e.employeeAddress)}
+                    {displayName(records[e.employeeAddress.toLowerCase()], e.employeeAddress)}
                   </TableCell>
                   <TableCell>
                     <AddressLink address={e.employeeAddress} />
@@ -98,15 +98,15 @@ export default function ExecutionPaie({
                 <TableCell className="font-semibold">Total versé</TableCell>
                 <TableCell>{null}</TableCell>
                 <TableCell align="right" className="font-mono font-semibold">
-                  {masse !== undefined ? formatToken(masse) : "…"}
+                  {payrollTotal !== undefined ? formatToken(payrollTotal) : "…"}
                 </TableCell>
               </TableRow>
               <TableRow>
                 <TableCell className="text-ink-2">Solde du contrat après opération</TableCell>
                 <TableCell>{null}</TableCell>
                 <TableCell align="right" className="font-mono text-ink-2">
-                  {solde !== undefined && masse !== undefined
-                    ? formatToken(solde - masse)
+                  {balance !== undefined && payrollTotal !== undefined
+                    ? formatToken(balance - payrollTotal)
                     : "…"}
                 </TableCell>
               </TableRow>
@@ -118,18 +118,18 @@ export default function ExecutionPaie({
           size="lg"
           block
           className="mt-4"
-          disabled={!executable}
+          disabled={!canRun}
           onClick={() =>
-            onDemander({
-              titre: "Exécuter la paie",
+            onRequest({
+              title: "Exécuter la paie",
               code: "B7",
               message:
                 "Tous les salaires sont versés en une seule transaction. L'opération est atomique : ou bien chaque salarié est payé, ou bien aucun ne l'est.",
-              lignes: [
-                { label: "Bénéficiaires", valeur: String(effectif) },
-                { label: "Total versé", valeur: formatToken(masse!) },
+              rows: [
+                { label: "Bénéficiaires", value: String(headcount) },
+                { label: "Total versé", value: formatToken(payrollTotal!) },
               ],
-              appels: [{ cible: "payroll", fonction: "runPayroll", args: [] }],
+              calls: [{ target: "payroll", functionName: "runPayroll", args: [] }],
             })
           }
         >
@@ -145,7 +145,7 @@ export default function ExecutionPaie({
       </Panel>
 
       <Panel title="Trois dernières exécutions">
-        {echecJournaux ? (
+        {logsFailure ? (
           <LogsReadError />
         ) : cycles.length === 0 ? (
           <EmptyState title="Aucune exécution observée">
@@ -167,9 +167,9 @@ export default function ExecutionPaie({
                   <TableCell className="whitespace-nowrap font-mono text-ink-2">
                     {formatDateTime(c.date)}
                   </TableCell>
-                  <TableCell>{String(c.effectif)} salariés</TableCell>
+                  <TableCell>{String(c.headcount)} salariés</TableCell>
                   <TableCell align="right" className="font-mono">
-                    {c.montant !== undefined ? formatToken(c.montant) : "—"}
+                    {c.amount !== undefined ? formatToken(c.amount) : "—"}
                   </TableCell>
                   <TableCell align="right">
                     <TxLink hash={c.hash} />

@@ -19,22 +19,22 @@ import { CopyButton } from "@/components/copy-button";
 import { DetailList, DetailItem } from "@/components/detail-list";
 import { Hint } from "@/components/hint";
 import { CountdownFigure } from "../CountdownFigure";
-import { useMonEspace } from "../../hooks/use-mon-espace";
-import { useEcheance } from "../../hooks/use-echeance";
-import { useFiches } from "../../hooks/use-directory";
-import type { Ecran } from "../AppShell";
+import { useMyAccount } from "../../hooks/use-my-account";
+import { useDueDate } from "../../hooks/use-due-date";
+import { useRecords } from "../../hooks/use-directory";
+import type { ScreenCode } from "../AppShell";
 
 /* ------------------------------------------------------------------ C1 */
 
-export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
-  const { salaire, versements, totalPercu, enCours, echecJournaux } = useMonEspace();
-  const { restant, echue, prochaine } = useEcheance();
+export function EmployeeView({ onNavigate }: { onNavigate: (e: ScreenCode) => void }) {
+  const { salary, payments, totalReceived, busy, logsFailure } = useMyAccount();
+  const { remaining, isDue, next } = useDueDate();
 
-  const recents = versements.slice(0, 5);
+  const recent = payments.slice(0, 5);
 
   return (
     <>
-      {echue && (
+      {isDue && (
         <Alert tone="warn" title="La paie est exigible et n'a pas été exécutée.">
           Le contrat ne connaît pas le retard : passé l&apos;échéance, il attend
           simplement qu&apos;une adresse déclenche le versement. Vous pouvez le faire
@@ -45,42 +45,42 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
       <div className="grid gap-3 sm:grid-cols-3">
         <StatCard
           label="Mon salaire par cycle"
-          value={salaire !== undefined ? formatToken(salaire, false) : "…"}
+          value={salary !== undefined ? formatToken(salary, false) : "…"}
           hint="tel qu'inscrit en chaîne"
         />
         <StatCard
           label="Versements reçus"
-          value={enCours ? "…" : echecJournaux ? "?" : versements.length}
+          value={busy ? "…" : logsFailure ? "?" : payments.length}
           hint={
-            enCours
+            busy
               ? "lecture des journaux…"
-              : echecJournaux
+              : logsFailure
                 ? "journaux illisibles"
                 : "depuis mon inscription"
           }
         />
         <StatCard
           label="Total perçu"
-          value={enCours ? "…" : echecJournaux ? "?" : formatToken(totalPercu, false)}
-          hint={echecJournaux ? "journaux illisibles" : "cumul des versements"}
+          value={busy ? "…" : logsFailure ? "?" : formatToken(totalReceived, false)}
+          hint={logsFailure ? "journaux illisibles" : "cumul des versements"}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Prochain versement">
-          <CountdownFigure remaining={restant} whenDue="exigible maintenant" />
+          <CountdownFigure remaining={remaining} whenDue="exigible maintenant" />
           <p className="mt-1.5 text-ink-2">
-            {prochaine !== undefined && <>Éligible le {formatDateTime(prochaine)}</>}
+            {next !== undefined && <>Éligible le {formatDateTime(next)}</>}
           </p>
           <DetailList className="mt-4 border-t border-line pt-3">
             <DetailItem label="Montant attendu">
-              {salaire !== undefined ? formatToken(salaire) : "…"}
+              {salary !== undefined ? formatToken(salary) : "…"}
             </DetailItem>
           </DetailList>
           <Hint className="mt-3">
             Si la paie n&apos;est pas exécutée alors qu&apos;elle est due et que les
             fonds sont là, vous pouvez la{" "}
-            <Button variant="link" size="none" onClick={() => onNaviguer("C5")}>
+            <Button variant="link" size="none" onClick={() => onNavigate("C5")}>
               déclencher vous-même
             </Button>
             .
@@ -90,28 +90,28 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
         <Panel
           title="Derniers versements reçus"
           action={
-            <Button variant="secondary" size="sm" onClick={() => onNaviguer("C2")}>
+            <Button variant="secondary" size="sm" onClick={() => onNavigate("C2")}>
               Tout voir
             </Button>
           }
         >
-          {enCours ? (
+          {busy ? (
             <SkeletonRows rows={4} />
-          ) : echecJournaux ? (
+          ) : logsFailure ? (
             <LogsReadError />
-          ) : recents.length === 0 ? (
+          ) : recent.length === 0 ? (
             <EmptyState title="Aucun versement">
               Votre première paie apparaîtra ici dès qu&apos;elle sera exécutée.
             </EmptyState>
           ) : (
             <div className="grid gap-1.5">
-              {recents.map((v) => (
+              {recent.map((v) => (
                 <div
                   key={`${v.hash}-${v.logIndex}`}
                   className="flex items-center justify-between gap-3 border-b border-line pb-1.5 last:border-0"
                 >
                   <span className="font-mono text-ink-2">{formatDateTime(v.date)}</span>
-                  <span className="font-mono">{formatToken(v.montant!)}</span>
+                  <span className="font-mono">{formatToken(v.amount!)}</span>
                   <TxLink hash={v.hash} />
                 </div>
               ))}
@@ -125,16 +125,16 @@ export function VueSalarie({ onNaviguer }: { onNaviguer: (e: Ecran) => void }) {
 
 /* ------------------------------------------------------------------ C2 */
 
-export function MesVersements() {
-  const { versements, totalPercu, enCours, echecJournaux } = useMonEspace();
+export function MyPayments() {
+  const { payments, totalReceived, busy, logsFailure } = useMyAccount();
 
   return (
-    <Panel title={`Mes versements (${versements.length})`}>
-      {enCours ? (
+    <Panel title={`Mes versements (${payments.length})`}>
+      {busy ? (
         <SkeletonRows rows={6} />
-      ) : echecJournaux ? (
+      ) : logsFailure ? (
         <LogsReadError />
-      ) : versements.length === 0 ? (
+      ) : payments.length === 0 ? (
         <EmptyState title="Aucun versement pour l'instant">
           Votre première paie apparaîtra ici dès qu&apos;elle sera exécutée. Le compte à
           rebours est visible sur votre vue d&apos;ensemble.
@@ -149,13 +149,13 @@ export function MesVersements() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {versements.map((v) => (
+            {payments.map((v) => (
               <TableRow key={`${v.hash}-${v.logIndex}`}>
                 <TableCell className="whitespace-nowrap font-mono text-ink-2">
                   {formatDateTime(v.date)}
                 </TableCell>
                 <TableCell align="right" className="font-mono">
-                  {formatToken(v.montant!)}
+                  {formatToken(v.amount!)}
                 </TableCell>
                 <TableCell align="right">
                   <TxLink hash={v.hash} />
@@ -165,7 +165,7 @@ export function MesVersements() {
             <TableRow>
               <TableCell className="font-semibold">Total perçu</TableCell>
               <TableCell align="right" className="font-mono font-semibold">
-                {formatToken(totalPercu)}
+                {formatToken(totalReceived)}
               </TableCell>
               <TableCell>{null}</TableCell>
             </TableRow>
@@ -178,22 +178,22 @@ export function MesVersements() {
 
 /* ------------------------------------------------------------------ C4 */
 
-export function MonProfil() {
-  const { adresse, salaire } = useMonEspace();
-  const fiches = useFiches();
-  const fiche = adresse ? fiches[adresse.toLowerCase()] : undefined;
+export function MyProfile() {
+  const { address, salary } = useMyAccount();
+  const records = useRecords();
+  const record = address ? records[address.toLowerCase()] : undefined;
 
   return (
     <>
       <Panel title="Identité — hors chaîne, lecture seule">
         <DetailList>
-          <DetailItem ruled mono={false} label="Prénom">{fiche?.prenom || "non renseigné"}</DetailItem>
-          <DetailItem ruled mono={false} label="Nom">{fiche?.nom || "non renseigné"}</DetailItem>
-          <DetailItem ruled mono={false} label="Poste">{fiche?.poste || "non renseigné"}</DetailItem>
-          <DetailItem ruled mono={false} label="Adresse électronique">{fiche?.email || "non renseignée"}</DetailItem>
-          <DetailItem ruled mono={false} label="Date d'embauche">{fiche?.embauche || "non renseignée"}</DetailItem>
+          <DetailItem ruled mono={false} label="Prénom">{record?.firstName || "non renseigné"}</DetailItem>
+          <DetailItem ruled mono={false} label="Nom">{record?.lastName || "non renseigné"}</DetailItem>
+          <DetailItem ruled mono={false} label="Poste">{record?.jobTitle || "non renseigné"}</DetailItem>
+          <DetailItem ruled mono={false} label="Adresse électronique">{record?.email || "non renseignée"}</DetailItem>
+          <DetailItem ruled mono={false} label="Date d'embauche">{record?.hireDate || "non renseignée"}</DetailItem>
           <DetailItem ruled mono={false} label="Salaire par cycle">
-            {salaire !== undefined ? formatToken(salaire) : "…"}
+            {salary !== undefined ? formatToken(salary) : "…"}
             </DetailItem>
         </DetailList>
         <Hint className="mt-3">
@@ -220,11 +220,11 @@ export function MonProfil() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
           <span className="text-ink-2">Mon adresse enregistrée</span>
-          <span className="font-mono">{adresse ? shortAddress(adresse) : "…"}</span>
-          <CopyButton value={adresse} toastMessage="Adresse copiée" variant="secondary" size="xs">
+          <span className="font-mono">{address ? shortAddress(address) : "…"}</span>
+          <CopyButton value={address} toastMessage="Adresse copiée" variant="secondary" size="xs">
             Copier
           </CopyButton>
-          {adresse && <AddressLink address={adresse} />}
+          {address && <AddressLink address={address} />}
         </div>
 
         <Hint className="mt-3">

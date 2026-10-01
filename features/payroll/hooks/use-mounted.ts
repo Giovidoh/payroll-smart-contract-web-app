@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 
-const sAbonner = () => () => {};
+const subscribe = () => () => {};
 
 /**
  * Vrai une fois l'hydratation faite.
@@ -13,9 +13,9 @@ const sAbonner = () => () => {};
  * `useSyncExternalStore` répond `false` au serveur et `true` au client sans
  * passer par un effet.
  */
-export function useMonte() {
+export function useMounted() {
   return useSyncExternalStore(
-    sAbonner,
+    subscribe,
     () => true,
     () => false
   );

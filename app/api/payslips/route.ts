@@ -1,7 +1,7 @@
 import { z } from "zod";
-import { identifier, NON_AUTHENTIFIE, refus } from "@/lib/server/roles";
-import { lire, ecrire } from "@/lib/server/db";
-import { ADRESSE } from "@/lib/server/employees";
+import { identifier, UNAUTHENTICATED, reject } from "@/lib/server/roles";
+import { read, write } from "@/lib/server/db";
+import { ADDRESS } from "@/lib/server/employees";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,40 +17,41 @@ export const dynamic = "force-dynamic";
  * journal), puisqu'une exécution de la paie verse à tous les salariés dans une
  * transaction unique.
  */
-type LigneRegistre = {
-  adresse_ethereum: string;
-  hash_transaction: string;
-  numero_log: number;
-  date_emission: string;
+type RegistryRow = {
+  address: string;
+  txHash: string;
+  logIndex: number;
+  issuedAt: string;
 };
 
 const SELECTION = `
-  SELECT e.adresse_ethereum, b.hash_transaction, b.numero_log, b.date_emission
+  SELECT e.adresse_ethereum AS address, b.hash_transaction AS txHash,
+         b.numero_log AS logIndex, b.date_emission AS issuedAt
     FROM BulletinPaie b
     JOIN Employe e ON e.id = b.employe_id
-   WHERE e.adresse_contrat = :contrat
+   WHERE e.adresse_contrat = :contract
 `;
 
 export async function GET(): Promise<Response> {
-  const appelant = await identifier();
-  if (!appelant) return NON_AUTHENTIFIE();
+  const caller = await identifier();
+  if (!caller) return UNAUTHENTICATED();
 
-  const lignes = appelant.estProprietaire
-    ? await lire<LigneRegistre>(`${SELECTION} ORDER BY b.date_emission DESC`, {
-        contrat: appelant.contrat,
+  const rows = caller.isOwner
+    ? await read<RegistryRow>(`${SELECTION} ORDER BY b.date_emission DESC`, {
+        contract: caller.contract,
       })
-    : await lire<LigneRegistre>(
-        `${SELECTION} AND e.adresse_ethereum = :adresse ORDER BY b.date_emission DESC`,
-        { contrat: appelant.contrat, adresse: appelant.adresse }
+    : await read<RegistryRow>(
+        `${SELECTION} AND e.adresse_ethereum = :address ORDER BY b.date_emission DESC`,
+        { contract: caller.contract, address: caller.address }
       );
 
-  return Response.json({ bulletins: lignes });
+  return Response.json({ payslips: rows });
 }
 
-const Emission = z.object({
-  adresse: ADRESSE,
+const Issuance = z.object({
+  address: ADDRESS,
   hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/, "Hachage de transaction invalide."),
-  numeroLog: z.number().int().min(0),
+  logIndex: z.number().int().min(0),
 });
 
 /**
@@ -58,34 +59,34 @@ const Emission = z.object({
  * crée pas une seconde entrée, puisque le registre atteste un versement, non un
  * téléchargement.
  */
-export async function POST(requete: Request): Promise<Response> {
-  const appelant = await identifier();
-  if (!appelant) return NON_AUTHENTIFIE();
+export async function POST(request: Request): Promise<Response> {
+  const caller = await identifier();
+  if (!caller) return UNAUTHENTICATED();
 
-  const corps = Emission.safeParse(await requete.json().catch(() => null));
-  if (!corps.success) {
+  const body = Issuance.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
     return Response.json(
-      { erreur: corps.error.issues[0]?.message ?? "Requête mal formée." },
+      { error: body.error.issues[0]?.message ?? "Requête mal formée." },
       { status: 400 }
     );
   }
 
-  const beneficiaire = corps.data.adresse.toLowerCase();
-  if (!appelant.estProprietaire && beneficiaire !== appelant.adresse) {
-    return refus("Vous ne pouvez consigner que vos propres bulletins.", 403);
+  const recipient = body.data.address.toLowerCase();
+  if (!caller.isOwner && recipient !== caller.address) {
+    return reject("Vous ne pouvez consigner que vos propres bulletins.", 403);
   }
 
-  const { touchees } = await ecrire(
+  const { affected } = await write(
     `INSERT INTO BulletinPaie (employe_id, hash_transaction, numero_log)
-     SELECT e.id, :hash, :numeroLog
+     SELECT e.id, :hash, :logIndex
        FROM Employe e
-      WHERE e.adresse_contrat = :contrat AND e.adresse_ethereum = :adresse
+      WHERE e.adresse_contrat = :contract AND e.adresse_ethereum = :address
      ON DUPLICATE KEY UPDATE numero_log = BulletinPaie.numero_log`,
     {
-      hash: corps.data.hash.toLowerCase(),
-      numeroLog: corps.data.numeroLog,
-      contrat: appelant.contrat,
-      adresse: beneficiaire,
+      hash: body.data.hash.toLowerCase(),
+      logIndex: body.data.logIndex,
+      contract: caller.contract,
+      address: recipient,
     }
   );
 
@@ -95,12 +96,12 @@ export async function POST(requete: Request): Promise<Response> {
    * pas renseigné l'identité. Le cas est réel — la chaîne paie des adresses,
    * pas des personnes — et il faut le dire plutôt que l'ignorer.
    */
-  if (touchees === 0) {
-    return refus(
+  if (affected === 0) {
+    return reject(
       "Aucune identité n'est renseignée pour cette adresse : le bulletin ne peut pas être inscrit au registre.",
       409
     );
   }
 
-  return Response.json({ inscrit: true });
+  return Response.json({ registered: true });
 }

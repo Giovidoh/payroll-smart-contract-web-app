@@ -1,34 +1,34 @@
-import { identifier, NON_AUTHENTIFIE, RESERVE_EMPLOYEUR, refus } from "@/lib/server/roles";
+import { identifier, UNAUTHENTICATED, OWNER_ONLY, reject } from "@/lib/server/roles";
 import {
-  ADRESSE,
-  FicheEntrante,
-  enregistrerFiche,
-  lireFiche,
-  supprimerFiche,
+  ADDRESS,
+  IncomingRecord,
+  saveRecord,
+  readRecord,
+  deleteRecord,
 } from "@/lib/server/employees";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type Contexte = { params: Promise<{ address: string }> };
+type Context = { params: Promise<{ address: string }> };
 
-export async function GET(_: Request, { params }: Contexte): Promise<Response> {
-  const appelant = await identifier();
-  if (!appelant) return NON_AUTHENTIFIE();
+export async function GET(_: Request, { params }: Context): Promise<Response> {
+  const caller = await identifier();
+  if (!caller) return UNAUTHENTICATED();
 
-  const adresse = ADRESSE.safeParse((await params).address);
-  if (!adresse.success) return refus("Adresse invalide.", 400);
+  const address = ADDRESS.safeParse((await params).address);
+  if (!address.success) return reject("Adresse invalide.", 400);
 
-  const voulue = adresse.data.toLowerCase();
+  const target = address.data.toLowerCase();
 
   // La garde du contrat, à l'identique : le propriétaire, ou l'intéressé.
-  if (!appelant.estProprietaire && voulue !== appelant.adresse) {
-    return refus("Vous ne pouvez consulter que votre propre fiche.", 403);
+  if (!caller.isOwner && target !== caller.address) {
+    return reject("Vous ne pouvez consulter que votre propre fiche.", 403);
   }
 
-  const fiche = await lireFiche(appelant.contrat, voulue);
-  if (!fiche) return refus("Aucune fiche pour cette adresse.", 404);
-  return Response.json({ fiche });
+  const record = await readRecord(caller.contract, target);
+  if (!record) return reject("Aucune fiche pour cette adresse.", 404);
+  return Response.json({ record });
 }
 
 /**
@@ -36,34 +36,34 @@ export async function GET(_: Request, { params }: Contexte): Promise<Response> {
  * fiche serait défendable, mais changerait la nature du document : le bulletin
  * cesserait d'être établi par l'employeur, qui en répond.
  */
-export async function PUT(requete: Request, { params }: Contexte): Promise<Response> {
-  const appelant = await identifier();
-  if (!appelant) return NON_AUTHENTIFIE();
-  if (!appelant.estProprietaire) return RESERVE_EMPLOYEUR();
+export async function PUT(request: Request, { params }: Context): Promise<Response> {
+  const caller = await identifier();
+  if (!caller) return UNAUTHENTICATED();
+  if (!caller.isOwner) return OWNER_ONLY();
 
-  const adresse = ADRESSE.safeParse((await params).address);
-  if (!adresse.success) return refus("Adresse invalide.", 400);
+  const address = ADDRESS.safeParse((await params).address);
+  if (!address.success) return reject("Adresse invalide.", 400);
 
-  const corps = FicheEntrante.safeParse(await requete.json().catch(() => null));
-  if (!corps.success) {
+  const body = IncomingRecord.safeParse(await request.json().catch(() => null));
+  if (!body.success) {
     return Response.json(
-      { erreur: corps.error.issues[0]?.message ?? "Fiche mal formée." },
+      { error: body.error.issues[0]?.message ?? "Fiche mal formée." },
       { status: 400 }
     );
   }
 
-  await enregistrerFiche(appelant.contrat, adresse.data, corps.data);
-  return Response.json({ fiche: await lireFiche(appelant.contrat, adresse.data) });
+  await saveRecord(caller.contract, address.data, body.data);
+  return Response.json({ record: await readRecord(caller.contract, address.data) });
 }
 
-export async function DELETE(_: Request, { params }: Contexte): Promise<Response> {
-  const appelant = await identifier();
-  if (!appelant) return NON_AUTHENTIFIE();
-  if (!appelant.estProprietaire) return RESERVE_EMPLOYEUR();
+export async function DELETE(_: Request, { params }: Context): Promise<Response> {
+  const caller = await identifier();
+  if (!caller) return UNAUTHENTICATED();
+  if (!caller.isOwner) return OWNER_ONLY();
 
-  const adresse = ADRESSE.safeParse((await params).address);
-  if (!adresse.success) return refus("Adresse invalide.", 400);
+  const address = ADDRESS.safeParse((await params).address);
+  if (!address.success) return reject("Adresse invalide.", 400);
 
-  const retiree = await supprimerFiche(appelant.contrat, adresse.data);
-  return Response.json({ retiree });
+  const removed = await deleteRecord(caller.contract, address.data);
+  return Response.json({ removed });
 }

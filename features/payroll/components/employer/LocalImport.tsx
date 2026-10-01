@@ -6,7 +6,7 @@ import { PAYROLL_ADDRESS } from "@/lib/contracts/config";
 import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { Hint } from "@/components/hint";
-import { useFiches, useEcrireFiche, type Fiche } from "../../hooks/use-directory";
+import { useRecords, useWriteRecord, type EmployeeRecord } from "../../hooks/use-directory";
 
 /**
  * Reprise des fiches restées dans le navigateur.
@@ -20,92 +20,92 @@ import { useFiches, useEcrireFiche, type Fiche } from "../../hooks/use-directory
  * L'encart n'apparaît donc que s'il reste quelque chose à reprendre, et rien ne
  * part sans un geste explicite.
  */
-const CLEF_MAGASIN = "paie-blockchain.repertoire";
+const STORE_KEY = "paie-blockchain.repertoire";
 
-type AncienneFiche = {
+type LegacyRecord = {
   address: string;
-  prenom: string;
-  nom: string;
-  poste: string;
+  firstName: string;
+  lastName: string;
+  jobTitle: string;
   email: string;
-  embauche: string;
+  hireDate: string;
 };
 
 /** Lit le magasin local sans passer par zustand, qui n'a plus à exister ici. */
-function lireMagasinLocal(): AncienneFiche[] {
+function readLocalStore(): LegacyRecord[] {
   if (typeof window === "undefined") return [];
   try {
-    const brut = window.localStorage.getItem(CLEF_MAGASIN);
-    if (!brut) return [];
-    const etat = JSON.parse(brut) as {
-      state?: { parContrat?: Record<string, Record<string, AncienneFiche>> };
+    const raw = window.localStorage.getItem(STORE_KEY);
+    if (!raw) return [];
+    const state = JSON.parse(raw) as {
+      state?: { byContract?: Record<string, Record<string, LegacyRecord>> };
     };
-    const pour = etat.state?.parContrat?.[PAYROLL_ADDRESS.toLowerCase()];
-    return pour ? Object.values(pour) : [];
+    const forContract = state.state?.byContract?.[PAYROLL_ADDRESS.toLowerCase()];
+    return forContract ? Object.values(forContract) : [];
   } catch {
     // Un magasin illisible n'est pas une erreur à remonter : il n'y a rien à reprendre.
     return [];
   }
 }
 
-export default function RepriseLocale() {
-  const [locales] = useState<AncienneFiche[]>(lireMagasinLocal);
-  const [termine, setTermine] = useState(false);
-  const [enCours, setEnCours] = useState(false);
-  const fiches = useFiches();
-  const { enregistrer } = useEcrireFiche();
+export default function LocalImport() {
+  const [locales] = useState<LegacyRecord[]>(readLocalStore);
+  const [done, setDone] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const records = useRecords();
+  const { save } = useWriteRecord();
 
   // Seules comptent les fiches que la base ne connaît pas encore.
-  const manquantes = locales.filter((f) => !fiches[f.address.toLowerCase()]);
+  const missing = locales.filter((f) => !records[f.address.toLowerCase()]);
 
-  if (termine || manquantes.length === 0) return null;
+  if (done || missing.length === 0) return null;
 
-  const reprendre = async () => {
-    setEnCours(true);
-    for (const f of manquantes) {
-      enregistrer({ ...f, address: f.address.toLowerCase() } as Fiche);
+  const importRecords = async () => {
+    setBusy(true);
+    for (const f of missing) {
+      save({ ...f, address: f.address.toLowerCase() } as EmployeeRecord);
     }
-    setEnCours(false);
-    setTermine(true);
+    setBusy(false);
+    setDone(true);
     toast.success(
-      `${manquantes.length} fiche${manquantes.length > 1 ? "s" : ""} transférée${manquantes.length > 1 ? "s" : ""} vers la base.`
+      `${missing.length} fiche${missing.length > 1 ? "s" : ""} transférée${missing.length > 1 ? "s" : ""} vers la base.`
     );
   };
 
-  const oublier = () => {
+  const forget = () => {
     try {
-      window.localStorage.removeItem(CLEF_MAGASIN);
+      window.localStorage.removeItem(STORE_KEY);
     } catch {
       /* Un magasin inaccessible est déjà sans effet. */
     }
-    setTermine(true);
+    setDone(true);
     toast.success("Les fiches locales ont été effacées de ce navigateur.");
   };
 
   return (
     <Panel title="Fiches restées dans ce navigateur">
       <p className="mb-3 text-ink-2">
-        {manquantes.length} identité{manquantes.length > 1 ? "s" : ""} enregistrée
-        {manquantes.length > 1 ? "s" : ""} sur ce poste ne figure
-        {manquantes.length > 1 ? "nt" : ""} pas dans la base. Tant qu&apos;elle
-        {manquantes.length > 1 ? "s n'y sont" : " n'y est"} pas, les bulletins
+        {missing.length} identité{missing.length > 1 ? "s" : ""} enregistrée
+        {missing.length > 1 ? "s" : ""} sur ce poste ne figure
+        {missing.length > 1 ? "nt" : ""} pas dans la base. Tant qu&apos;elle
+        {missing.length > 1 ? "s n'y sont" : " n'y est"} pas, les bulletins
         correspondants seront émis sans nom, et aucun autre poste ne
-        {manquantes.length > 1 ? " les" : " la"} verra.
+        {missing.length > 1 ? " les" : " la"} verra.
       </p>
 
       <ul className="mb-4 grid gap-1 text-[11px] text-ink-3">
-        {manquantes.map((f) => (
+        {missing.map((f) => (
           <li key={f.address} className="font-mono">
-            {`${f.prenom} ${f.nom}`.trim() || "(sans nom)"} — {f.address.slice(0, 10)}…
+            {`${f.firstName} ${f.lastName}`.trim() || "(sans nom)"} — {f.address.slice(0, 10)}…
           </li>
         ))}
       </ul>
 
       <div className="flex flex-wrap gap-2">
-        <Button disabled={enCours} onClick={reprendre}>
-          {enCours ? "Transfert…" : "Transférer vers la base"}
+        <Button disabled={busy} onClick={importRecords}>
+          {busy ? "Transfert…" : "Transférer vers la base"}
         </Button>
-        <Button variant="secondary" onClick={oublier}>
+        <Button variant="secondary" onClick={forget}>
           Effacer de ce navigateur
         </Button>
       </div>

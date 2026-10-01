@@ -14,29 +14,29 @@ import { decodeContractError } from "@/lib/contracts/errors";
  * puis on rend compte. Une transaction qui échoue doit dire *pourquoi*, en
  * français, d'où le passage systématique par `decodeContractError`.
  */
-export type EtatTx =
-  | { phase: "repos" }
+export type TxState =
+  | { phase: "idle" }
   | { phase: "confirmation" }
   | { phase: "signature" }
-  | { phase: "attente"; hash: Hash }
-  | { phase: "succes"; hash: Hash }
-  | { phase: "echec"; message: string; hash?: Hash };
+  | { phase: "waiting"; hash: Hash }
+  | { phase: "success"; hash: Hash }
+  | { phase: "failure"; message: string; hash?: Hash };
 
-export type EtapeTx = { libelle: string; etat: "attente" | "encours" | "faite" };
+export type TxStep = { label: string; state: "waiting" | "active" | "done" };
 
 export type Operation = {
   /** Intitulé affiché en tête de la boîte de dialogue. */
-  titre: string;
+  title: string;
   /** Code d'écran de la maquette, affiché en petit à droite du titre. */
   code: string;
   /** Phrase qui explique ce que l'utilisateur s'apprête à signer. */
   message: string;
   /** Récapitulatif chiffré, affiché avant signature. */
-  lignes?: { label: string; valeur: string }[];
+  rows?: { label: string; value: string }[];
   /** Étapes, quand l'opération en demande plusieurs (autorisation puis dépôt). */
-  etapes?: string[];
+  steps?: string[];
   /** Les appels à enchaîner, dans l'ordre. */
-  appels: AppelContrat[];
+  calls: ContractCall[];
   /**
    * Effet hors chaîne à n'exécuter qu'une fois la chaîne acquise.
    *
@@ -51,33 +51,33 @@ export type Operation = {
    * et n'est pas réparé ici : il laisse une fiche orpheline, visible et
    * corrigeable à la main. C'est l'asymétrie acceptable des deux.
    */
-  apres?: () => void | Promise<void>;
+  after?: () => void | Promise<void>;
 };
 
-export type AppelContrat = {
-  cible: "payroll" | "token";
-  fonction: string;
+export type ContractCall = {
+  target: "payroll" | "token";
+  functionName: string;
   args: readonly unknown[];
 };
 
-function resoudre(appel: AppelContrat): {
+function resolve(call: ContractCall): {
   abi: Abi;
   address: Address;
   functionName: string;
   args: readonly unknown[];
 } {
-  return appel.cible === "payroll"
+  return call.target === "payroll"
     ? {
         abi: payrollAbi as unknown as Abi,
         address: PAYROLL_ADDRESS,
-        functionName: appel.fonction,
-        args: appel.args,
+        functionName: call.functionName,
+        args: call.args,
       }
     : {
         abi: erc20Abi as unknown as Abi,
         address: TOKEN_ADDRESS,
-        functionName: appel.fonction,
-        args: appel.args,
+        functionName: call.functionName,
+        args: call.args,
       };
 }
 
@@ -86,20 +86,20 @@ export function useTransaction() {
   const client = usePublicClient({ chainId: CHAIN.id });
   const { address } = useAccount();
   const [operation, setOperation] = useState<Operation | null>(null);
-  const [etat, setEtat] = useState<EtatTx>({ phase: "repos" });
-  const [etapeCourante, setEtapeCourante] = useState(0);
+  const [state, setState] = useState<TxState>({ phase: "idle" });
+  const [currentStep, setCurrentStep] = useState(0);
 
   /** Ouvre la boîte de dialogue sur l'écran de confirmation (D1). */
-  const demander = useCallback((op: Operation) => {
+  const requestOperation = useCallback((op: Operation) => {
     setOperation(op);
-    setEtapeCourante(0);
-    setEtat({ phase: "confirmation" });
+    setCurrentStep(0);
+    setState({ phase: "confirmation" });
   }, []);
 
-  const fermer = useCallback(() => {
+  const close = useCallback(() => {
     setOperation(null);
-    setEtat({ phase: "repos" });
-    setEtapeCourante(0);
+    setState({ phase: "idle" });
+    setCurrentStep(0);
   }, []);
 
   /**
@@ -107,27 +107,27 @@ export function useTransaction() {
    * « la réserve immobilisée protège les salaires à venir » plutôt que de laisser
    * l'utilisateur dépenser du gas pour découvrir le refus.
    */
-  const executer = useCallback(async (): Promise<boolean> => {
+  const run = useCallback(async (): Promise<boolean> => {
     if (!operation || !client || !address) return false;
 
-    let dernierHash: Hash | undefined;
+    let lastHash: Hash | undefined;
 
-    for (let i = 0; i < operation.appels.length; i++) {
-      setEtapeCourante(i);
-      const params = resoudre(operation.appels[i]);
+    for (let i = 0; i < operation.calls.length; i++) {
+      setCurrentStep(i);
+      const params = resolve(operation.calls[i]);
 
       try {
-        setEtat({ phase: "signature" });
+        setState({ phase: "signature" });
         await client.simulateContract({ ...params, account: address });
 
         const hash = await writeContract(config, params as never);
-        dernierHash = hash;
-        setEtat({ phase: "attente", hash });
+        lastHash = hash;
+        setState({ phase: "waiting", hash });
 
-        const recu = await waitForTransactionReceipt(config, { hash });
-        if (recu.status === "reverted") {
-          setEtat({
-            phase: "echec",
+        const received = await waitForTransactionReceipt(config, { hash });
+        if (received.status === "reverted") {
+          setState({
+            phase: "failure",
             hash,
             message:
               "La transaction a été incluse dans un bloc mais le contrat l'a rejetée.",
@@ -135,25 +135,25 @@ export function useTransaction() {
           return false;
         }
       } catch (e) {
-        setEtat({
-          phase: "echec",
-          hash: dernierHash,
+        setState({
+          phase: "failure",
+          hash: lastHash,
           message: decodeContractError(e),
         });
         return false;
       }
     }
 
-    setEtat({ phase: "succes", hash: dernierHash! });
+    setState({ phase: "success", hash: lastHash! });
 
     /*
      * L'effet hors chaîne suit le succès, il ne le conditionne pas : la
      * transaction est dans un bloc, la dire échouée parce qu'une écriture en
      * base a manqué serait faux. Les appelants signalent eux-mêmes leur échec.
      */
-    if (operation.apres) {
+    if (operation.after) {
       try {
-        await operation.apres();
+        await operation.after();
       } catch {
         /* Déjà signalé par l'appelant. */
       }
@@ -162,15 +162,15 @@ export function useTransaction() {
     return true;
   }, [operation, client, address, config]);
 
-  const etapes: EtapeTx[] | undefined = operation?.etapes?.map((libelle, i) => ({
-    libelle,
-    etat:
-      etat.phase === "succes" || i < etapeCourante
-        ? "faite"
-        : i === etapeCourante && etat.phase !== "confirmation"
-          ? "encours"
-          : "attente",
+  const steps: TxStep[] | undefined = operation?.steps?.map((label, i) => ({
+    label,
+    state:
+      state.phase === "success" || i < currentStep
+        ? "done"
+        : i === currentStep && state.phase !== "confirmation"
+          ? "active"
+          : "waiting",
   }));
 
-  return { operation, etat, etapes, demander, executer, fermer };
+  return { operation, state, steps, requestOperation, run, close };
 }

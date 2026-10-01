@@ -11,11 +11,11 @@ import { DATABASE_URL } from "./env";
  * jusqu'à épuisement des connexions du serveur. On le range sur l'objet global,
  * qui, lui, survit au rechargement.
  */
-const cle = Symbol.for("paie-blockchain.pool-mysql");
+const key = Symbol.for("paie-blockchain.pool-mysql");
 
-type Porteur = typeof globalThis & { [cle]?: mysql.Pool };
+type GlobalWithPool = typeof globalThis & { [key]?: mysql.Pool };
 
-function creer(): mysql.Pool {
+function createPool(): mysql.Pool {
   return mysql.createPool({
     uri: DATABASE_URL,
     connectionLimit: 10,
@@ -28,28 +28,28 @@ function creer(): mysql.Pool {
   });
 }
 
-export const pool: mysql.Pool = ((globalThis as Porteur)[cle] ??= creer());
+export const pool: mysql.Pool = ((globalThis as GlobalWithPool)[key] ??= createPool());
 
 /**
  * Valeurs admises comme paramètre d'une requête préparée. Le type est
  * volontairement étroit : accepter `unknown` laisserait passer un objet qui
  * serait sérialisé en `[object Object]` sans que rien ne le signale.
  */
-type Valeur = string | number | bigint | boolean | Date | null;
-type Parametres = Record<string, Valeur>;
+type QueryValue = string | number | bigint | boolean | Date | null;
+type QueryParams = Record<string, QueryValue>;
 
 /** Lecture typée. Les requêtes sont préparées : les valeurs ne sont jamais concaténées. */
-export async function lire<T>(sql: string, valeurs?: Parametres): Promise<T[]> {
-  const [lignes] = await pool.execute(sql, valeurs ?? {});
-  return lignes as T[];
+export async function read<T>(sql: string, values?: QueryParams): Promise<T[]> {
+  const [rows] = await pool.execute(sql, values ?? {});
+  return rows as T[];
 }
 
 /** Écriture. Renvoie le nombre de lignes touchées et, le cas échéant, la clef engendrée. */
-export async function ecrire(
+export async function write(
   sql: string,
-  valeurs?: Parametres
-): Promise<{ touchees: number; id: number }> {
-  const [resultat] = await pool.execute(sql, valeurs ?? {});
-  const r = resultat as mysql.ResultSetHeader;
-  return { touchees: r.affectedRows, id: r.insertId };
+  values?: QueryParams
+): Promise<{ affected: number; id: number }> {
+  const [result] = await pool.execute(sql, values ?? {});
+  const r = result as mysql.ResultSetHeader;
+  return { affected: r.affectedRows, id: r.insertId };
 }

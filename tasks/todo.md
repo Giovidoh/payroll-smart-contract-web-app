@@ -145,7 +145,10 @@ Toutes closes. Les deux dernières, déplacées ci-dessous.
       une fonctionnalité. Aujourd'hui `features/payroll/components/ui-kit.tsx`
       concentre des briques génériques (`Panneau`, `Kpi`, `Tableau`, `Squelette`,
       `Requis`) qui n'ont rien de spécifique à la paie.
-- [ ] **Nommage en anglais.** Fichiers et identifiants sont en français
-      (`useRole`, `enCours`, `Salaries.tsx`, `CHEMINS`) alors que la convention
-      du projet — et celle du contrat — est l'anglais. Seuls les libellés
-      affichés doivent rester en français.
+- [~] **Nommage en anglais.** 632 identifiants et 18 fichiers renommés par le
+      compilateur (ts-morph), valeurs internes traduites (rôles, phases de
+      transaction), clés JSON de l'API et scripts de vérification en anglais.
+      Le schéma MySQL garde ses colonnes, celles du mémoire : les requêtes les
+      lisent sous alias anglais. Vérifié : typecheck, lint, build,
+      `verify:api` 19/19, requête du répertoire relue avec ses alias.
+      **Reste à voir à l'écran** avec un portefeuille.

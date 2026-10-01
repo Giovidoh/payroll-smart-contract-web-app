@@ -5,14 +5,14 @@ import type { Address } from "viem";
  * Le contrat garde `i_stablecoin` en `private immutable` et n'expose aucun accesseur :
  * l'adresse du jeton ne peut pas être lue depuis la chaîne, elle doit être configurée.
  */
-function requireAddress(nom: string, valeur: string | undefined): Address {
-  if (!valeur || !/^0x[0-9a-fA-F]{40}$/.test(valeur)) {
+function requireAddress(lastName: string, value: string | undefined): Address {
+  if (!value || !/^0x[0-9a-fA-F]{40}$/.test(value)) {
     throw new Error(
-      `Variable d'environnement ${nom} absente ou mal formée. ` +
+      `Variable d'environnement ${lastName} absente ou mal formée. ` +
         `Renseignez-la dans .env.local (voir .env.example).`
     );
   }
-  return valeur as Address;
+  return value as Address;
 }
 
 export const CHAIN = sepolia;

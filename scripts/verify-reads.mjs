@@ -18,36 +18,36 @@ const PAYROLL = env.NEXT_PUBLIC_PAYROLL_ADDRESS;
 const TOKEN = env.NEXT_PUBLIC_TOKEN_ADDRESS;
 
 // Le fichier TS n'est pas importable depuis node : on relit le JSON d'origine.
-const artefact = JSON.parse(
+const artifact = JSON.parse(
   readFileSync(
     process.env.CONTRACT_REPO ??
       "//wsl.localhost/Ubuntu/home/gidoh/projects/payroll-smart-contract/out/Payroll.sol/Payroll.json",
     "utf-8"
   )
 );
-const payrollAbi = artefact.abi;
+const payrollAbi = artifact.abi;
 
 const client = createPublicClient({
   chain: sepolia,
   transport: http(env.NEXT_PUBLIC_RPC_URL || undefined),
 });
 
-const lire = (functionName, args = []) =>
+const read = (functionName, args = []) =>
   client.readContract({ address: PAYROLL, abi: payrollAbi, functionName, args });
 
-const bloc = await client.getBlockNumber();
-console.log(`Réseau      : ${sepolia.name}, bloc ${bloc}`);
+const block = await client.getBlockNumber();
+console.log(`Réseau      : ${sepolia.name}, bloc ${block}`);
 console.log(`Contrat     : ${PAYROLL}`);
 
 // Depuis une adresse quelconque, seuls les accesseurs non gardes repondent.
-const [owner, intervalle, cycles, derniere] = await Promise.all([
-  lire("owner"),
-  lire("getPayrollInterval"),
-  lire("getReservedPayrollCycles"),
-  lire("getLastPayrollTimestamp"),
+const [owner, interval, cycles, lastRun] = await Promise.all([
+  read("owner"),
+  read("getPayrollInterval"),
+  read("getReservedPayrollCycles"),
+  read("getLastPayrollTimestamp"),
 ]);
 
-const [symbole, decimales, solde] = await Promise.all([
+const [symbol, decimals, balance] = await Promise.all([
   client.readContract({ address: TOKEN, abi: erc20Abi, functionName: "symbol" }),
   client.readContract({ address: TOKEN, abi: erc20Abi, functionName: "decimals" }),
   client.readContract({
@@ -58,31 +58,31 @@ const [symbole, decimales, solde] = await Promise.all([
   }),
 ]);
 
-const surplus = await lire("getAvailableAmountForWithdrawal").catch(() => null);
+const surplus = await read("getAvailableAmountForWithdrawal").catch(() => null);
 
 console.log(`Proprietaire: ${owner}`);
-console.log(`Intervalle  : ${intervalle} s`);
+console.log(`Intervalle  : ${interval} s`);
 console.log(`Cycles res. : ${cycles}`);
-console.log(`Derniere paie: ${new Date(Number(derniere) * 1000).toISOString()}`);
-console.log(`Jeton       : ${symbole}, ${decimales} decimales`);
-console.log(`Solde       : ${formatUnits(solde, decimales)} ${symbole}`);
+console.log(`Derniere paie: ${new Date(Number(lastRun) * 1000).toISOString()}`);
+console.log(`Jeton       : ${symbol}, ${decimals} decimales`);
+console.log(`Solde       : ${formatUnits(balance, decimals)} ${symbol}`);
 
 if (surplus === null) {
   console.log("Surplus     : REFUS -- le solde ne couvre pas la reserve");
 } else {
-  const masseDeduite = cycles === 0n ? null : (solde - surplus) / cycles;
-  console.log(`Surplus     : ${formatUnits(surplus, decimales)} ${symbole}`);
-  console.log(`Reserve     : ${formatUnits(solde - surplus, decimales)} ${symbole}`);
+  const derivedPayroll = cycles === 0n ? null : (balance - surplus) / cycles;
+  console.log(`Surplus     : ${formatUnits(surplus, decimals)} ${symbol}`);
+  console.log(`Reserve     : ${formatUnits(balance - surplus, decimals)} ${symbol}`);
   console.log(
     `Masse deduite par (solde - surplus) / cycles : ` +
-      `${masseDeduite === null ? "?" : formatUnits(masseDeduite, decimales)} ${symbole}`
+      `${derivedPayroll === null ? "?" : formatUnits(derivedPayroll, decimals)} ${symbol}`
   );
 }
 
 // Les accesseurs gardes, depuis une adresse quelconque.
 for (const fn of ["getAllEmployees", "getEmployeeExistence", "getTotalSalaries"]) {
   const args = fn === "getEmployeeExistence" ? [owner] : [];
-  const r = await lire(fn, args).then(
+  const r = await read(fn, args).then(
     (v) => `OK (${Array.isArray(v) ? v.length + " entrees" : v})`,
     (e) => "REFUS -- " + (e.cause?.data?.errorName ?? e.shortMessage ?? "revert")
   );

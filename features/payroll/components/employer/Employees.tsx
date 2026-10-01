@@ -23,130 +23,130 @@ import { AddressLink } from "@/components/explorer-link";
 import { DetailList, DetailItem } from "@/components/detail-list";
 import { FormField, FieldError, RequiredLegend } from "@/components/form-field";
 import { Hint } from "@/components/hint";
-import { useSalaries } from "../../hooks/use-payroll";
+import { useEmployees } from "../../hooks/use-payroll";
 import {
-  useFiches,
-  useEcrireFiche,
-  nomAffiche,
-  type Fiche,
+  useRecords,
+  useWriteRecord,
+  displayName,
+  type EmployeeRecord,
 } from "../../hooks/use-directory";
-import RepriseLocale from "./RepriseLocale";
+import LocalImport from "./LocalImport";
 import type { Operation } from "../../hooks/use-transaction";
 
-type Panneaux =
+type Panels =
   | null
-  | { mode: "ajout" }
-  | { mode: "salaire" | "retrait" | "identite"; adresse: Address };
+  | { mode: "add" }
+  | { mode: "salary" | "remove" | "identity"; address: Address };
 
-export default function Salaries({
-  onDemander,
+export default function Employees({
+  onRequest,
 }: {
-  onDemander: (o: Operation) => void;
+  onRequest: (o: Operation) => void;
 }) {
-  const { data: salaries, isLoading } = useSalaries();
-  const fiches = useFiches();
-  const { enregistrer, supprimer } = useEcrireFiche();
+  const { data: employees, isLoading } = useEmployees();
+  const records = useRecords();
+  const { save, remove } = useWriteRecord();
 
-  const [recherche, setRecherche] = useState("");
-  const [tri, setTri] = useState<"nom" | "salaire" | "adresse">("salaire");
-  const [panneau, setPanneau] = useState<Panneaux>(null);
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"name" | "salary" | "address">("salary");
+  const [panel, setPanel] = useState<Panels>(null);
 
-  const lignes = useMemo(() => {
-    const base = (salaries ?? []).map((e) => {
-      const fiche = fiches[e.employeeAddress.toLowerCase()];
+  const rows = useMemo(() => {
+    const base = (employees ?? []).map((e) => {
+      const record = records[e.employeeAddress.toLowerCase()];
       return {
-        adresse: e.employeeAddress,
-        salaire: e.salary,
-        fiche,
-        nom: nomAffiche(fiche, e.employeeAddress),
-        poste: fiche?.poste ?? "—",
+        address: e.employeeAddress,
+        salary: e.salary,
+        record,
+        lastName: displayName(record, e.employeeAddress),
+        jobTitle: record?.jobTitle ?? "—",
       };
     });
 
-    const q = recherche.trim().toLowerCase();
-    const filtre = q
+    const q = search.trim().toLowerCase();
+    const filter = q
       ? base.filter(
           (l) =>
-            l.nom.toLowerCase().includes(q) ||
-            l.poste.toLowerCase().includes(q) ||
-            l.adresse.toLowerCase().includes(q)
+            l.lastName.toLowerCase().includes(q) ||
+            l.jobTitle.toLowerCase().includes(q) ||
+            l.address.toLowerCase().includes(q)
         )
       : base;
 
-    return [...filtre].sort((a, b) =>
-      tri === "salaire"
-        ? Number(b.salaire - a.salaire)
-        : tri === "nom"
-          ? a.nom.localeCompare(b.nom, "fr")
-          : a.adresse.localeCompare(b.adresse)
+    return [...filter].sort((a, b) =>
+      sort === "salary"
+        ? Number(b.salary - a.salary)
+        : sort === "name"
+          ? a.lastName.localeCompare(b.lastName, "fr")
+          : a.address.localeCompare(b.address)
     );
-  }, [salaries, fiches, recherche, tri]);
+  }, [employees, records, search, sort]);
 
-  const total = lignes.reduce((s, l) => s + l.salaire, 0n);
+  const total = rows.reduce((s, l) => s + l.salary, 0n);
 
   return (
     <>
       <Panel>
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            value={recherche}
-            onChange={(e) => setRecherche(e.target.value)}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher un nom, un poste, une adresse"
             className="min-w-[220px] flex-1"
           />
-          <NativeSelect value={tri} onChange={(e) => setTri(e.target.value as typeof tri)}>
-            <option value="salaire">Trier par salaire</option>
-            <option value="nom">Trier par nom</option>
-            <option value="adresse">Trier par adresse</option>
+          <NativeSelect value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+            <option value="salary">Trier par salaire</option>
+            <option value="name">Trier par nom</option>
+            <option value="address">Trier par adresse</option>
           </NativeSelect>
-          <Button onClick={() => setPanneau({ mode: "ajout" })}>Ajouter un salarié</Button>
+          <Button onClick={() => setPanel({ mode: "add" })}>Ajouter un salarié</Button>
         </div>
       </Panel>
 
-      <RepriseLocale />
+      <LocalImport />
 
-      {panneau?.mode === "ajout" && (
-        <PanneauAjout
-          onFermer={() => setPanneau(null)}
-          onDemander={onDemander}
-          onFiche={enregistrer}
-          dejaInscrites={new Set((salaries ?? []).map((e) => e.employeeAddress.toLowerCase()))}
+      {panel?.mode === "add" && (
+        <AddPanel
+          onClose={() => setPanel(null)}
+          onRequest={onRequest}
+          onRecord={save}
+          alreadyRegistered={new Set((employees ?? []).map((e) => e.employeeAddress.toLowerCase()))}
         />
       )}
 
-      {panneau?.mode === "salaire" && (
-        <PanneauSalaire
-          adresse={panneau.adresse}
-          actuel={lignes.find((l) => l.adresse === panneau.adresse)?.salaire}
-          nom={lignes.find((l) => l.adresse === panneau.adresse)?.nom ?? ""}
-          onFermer={() => setPanneau(null)}
-          onDemander={onDemander}
+      {panel?.mode === "salary" && (
+        <SalaryPanel
+          address={panel.address}
+          current={rows.find((l) => l.address === panel.address)?.salary}
+          lastName={rows.find((l) => l.address === panel.address)?.lastName ?? ""}
+          onClose={() => setPanel(null)}
+          onRequest={onRequest}
         />
       )}
 
-      {panneau?.mode === "identite" && (
-        <PanneauIdentite
-          adresse={panneau.adresse}
-          fiche={fiches[panneau.adresse.toLowerCase()]}
-          onFermer={() => setPanneau(null)}
-          onFiche={enregistrer}
+      {panel?.mode === "identity" && (
+        <IdentityPanel
+          address={panel.address}
+          record={records[panel.address.toLowerCase()]}
+          onClose={() => setPanel(null)}
+          onRecord={save}
         />
       )}
 
-      {panneau?.mode === "retrait" && (
-        <PanneauRetrait
-          adresse={panneau.adresse}
-          nom={lignes.find((l) => l.adresse === panneau.adresse)?.nom ?? ""}
-          onFermer={() => setPanneau(null)}
-          onDemander={onDemander}
-          onOublier={supprimer}
+      {panel?.mode === "remove" && (
+        <WithdrawPanel
+          address={panel.address}
+          lastName={rows.find((l) => l.address === panel.address)?.lastName ?? ""}
+          onClose={() => setPanel(null)}
+          onRequest={onRequest}
+          onForget={remove}
         />
       )}
 
-      <Panel title={`Salariés inscrits (${lignes.length})`}>
+      <Panel title={`Salariés inscrits (${rows.length})`}>
         {isLoading ? (
           <SkeletonRows rows={6} />
-        ) : lignes.length === 0 ? (
+        ) : rows.length === 0 ? (
           <EmptyState title="Aucun salarié inscrit">
             Ajoutez une première adresse pour que la paie ait des bénéficiaires. Tant
             que la liste est vide, la masse salariale est nulle et une exécution ne
@@ -164,29 +164,29 @@ export default function Salaries({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lignes.map((l) => (
-                <TableRow key={l.adresse}>
-                  <TableCell className="font-medium">{l.nom}</TableCell>
-                  <TableCell className="text-ink-2">{l.poste}</TableCell>
+              {rows.map((l) => (
+                <TableRow key={l.address}>
+                  <TableCell className="font-medium">{l.lastName}</TableCell>
+                  <TableCell className="text-ink-2">{l.jobTitle}</TableCell>
                   <TableCell>
-                    <AddressLink address={l.adresse} />
+                    <AddressLink address={l.address} />
                   </TableCell>
                   <TableCell align="right" className="whitespace-nowrap font-mono">
-                    {formatToken(l.salaire)}
+                    {formatToken(l.salary)}
                   </TableCell>
                   <TableCell align="right">
                     <div className="flex justify-end gap-1.5">
                       <Button
                         variant="secondary"
                         size="xs"
-                        onClick={() => setPanneau({ mode: "identite", adresse: l.adresse })}
+                        onClick={() => setPanel({ mode: "identity", address: l.address })}
                       >
                         Identité
                       </Button>
                       <Button
                         variant="secondary"
                         size="xs"
-                        onClick={() => setPanneau({ mode: "salaire", adresse: l.adresse })}
+                        onClick={() => setPanel({ mode: "salary", address: l.address })}
                       >
                         Salaire
                       </Button>
@@ -194,7 +194,7 @@ export default function Salaries({
                         variant="secondary"
                         size="xs"
                         className="text-err"
-                        onClick={() => setPanneau({ mode: "retrait", adresse: l.adresse })}
+                        onClick={() => setPanel({ mode: "remove", address: l.address })}
                       >
                         Retirer
                       </Button>
@@ -220,17 +220,17 @@ export default function Salaries({
 }
 
 /** Boutons de pied de formulaire : l'action, puis l'abandon. */
-function ActionsFormulaire({
+function FormActions({
   children,
-  onAnnuler,
+  onCancel,
 }: {
   children: React.ReactNode;
-  onAnnuler: () => void;
+  onCancel: () => void;
 }) {
   return (
     <div className="mt-4 flex gap-2">
       {children}
-      <Button variant="secondary" className="px-3" onClick={onAnnuler}>
+      <Button variant="secondary" className="px-3" onClick={onCancel}>
         Annuler
       </Button>
     </div>
@@ -239,37 +239,37 @@ function ActionsFormulaire({
 
 /* ------------------------------------------------------------------ B3 */
 
-function PanneauAjout({
-  onFermer,
-  onDemander,
-  onFiche,
-  dejaInscrites,
+function AddPanel({
+  onClose,
+  onRequest,
+  onRecord,
+  alreadyRegistered,
 }: {
-  onFermer: () => void;
-  onDemander: (o: Operation) => void;
-  onFiche: (f: {
+  onClose: () => void;
+  onRequest: (o: Operation) => void;
+  onRecord: (f: {
     address: string;
-    prenom: string;
-    nom: string;
-    poste: string;
+    firstName: string;
+    lastName: string;
+    jobTitle: string;
     email: string;
-    embauche: string;
+    hireDate: string;
   }) => Promise<boolean>;
-  dejaInscrites: Set<string>;
+  alreadyRegistered: Set<string>;
 }) {
-  const [adresse, setAdresse] = useState("");
-  const [salaire, setSalaire] = useState("");
-  const [prenom, setPrenom] = useState("");
-  const [nom, setNom] = useState("");
-  const [poste, setPoste] = useState("");
+  const [address, setAddress] = useState("");
+  const [salary, setSalary] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
   const [email, setEmail] = useState("");
-  const [embauche, setEmbauche] = useState("");
+  const [hireDate, setHireDate] = useState("");
 
-  const adresseValide = isAddress(adresse);
-  const dejaLa = adresseValide && dejaInscrites.has(adresse.toLowerCase());
-  const montant = parseTokenOrNull(salaire);
+  const isValidAddress = isAddress(address);
+  const alreadyPresent = isValidAddress && alreadyRegistered.has(address.toLowerCase());
+  const amount = parseTokenOrNull(salary);
 
-  const pret = adresseValide && !dejaLa && montant !== null && montant > 0n;
+  const ready = isValidAddress && !alreadyPresent && amount !== null && amount > 0n;
 
   return (
     <Panel title="Ajouter un salarié">
@@ -283,19 +283,19 @@ function PanneauAjout({
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Adresse du portefeuille" required className="sm:col-span-2">
           <Input
-            value={adresse}
-            onChange={(e) => setAdresse(e.target.value)}
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
             placeholder="0x…"
             className="font-mono"
           />
-          {adresse && !adresseValide && <FieldError>Adresse invalide.</FieldError>}
-          {dejaLa && <FieldError>Cette adresse est déjà inscrite.</FieldError>}
+          {address && !isValidAddress && <FieldError>Adresse invalide.</FieldError>}
+          {alreadyPresent && <FieldError>Cette adresse est déjà inscrite.</FieldError>}
         </FormField>
 
         <FormField label={`Salaire par cycle (${TOKEN_SYMBOL})`} required>
           <Input
-            value={salaire}
-            onChange={(e) => setSalaire(e.target.value)}
+            value={salary}
+            onChange={(e) => setSalary(e.target.value)}
             inputMode="decimal"
             placeholder="1250,00"
             className="font-mono"
@@ -303,151 +303,151 @@ function PanneauAjout({
         </FormField>
 
         <FormField label="Date d'embauche">
-          <Input type="date" value={embauche} onChange={(e) => setEmbauche(e.target.value)} />
+          <Input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
         </FormField>
 
         <FormField label="Prénom">
-          <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         </FormField>
         <FormField label="Nom">
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} />
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
         </FormField>
         <FormField label="Poste">
-          <Input value={poste} onChange={(e) => setPoste(e.target.value)} />
+          <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
         </FormField>
         <FormField label="Adresse électronique">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </FormField>
       </div>
 
-      <ActionsFormulaire onAnnuler={onFermer}>
+      <FormActions onCancel={onClose}>
         <Button
-          disabled={!pret}
+          disabled={!ready}
           onClick={() => {
-            onDemander({
-              titre: "Ajouter un salarié",
+            onRequest({
+              title: "Ajouter un salarié",
               code: "B3",
               message:
                 "Le contrat inscrira cette adresse et son salaire. La masse salariale augmentera d'autant, et la réserve immobilisée avec elle.",
-              lignes: [
-                { label: "Adresse", valeur: shortAddress(adresse) },
-                { label: "Salaire par cycle", valeur: formatToken(montant!) },
+              rows: [
+                { label: "Adresse", value: shortAddress(address) },
+                { label: "Salaire par cycle", value: formatToken(amount!) },
               ],
-              appels: [
+              calls: [
                 {
-                  cible: "payroll",
-                  fonction: "addEmployee",
-                  args: [adresse as Address, montant!],
+                  target: "payroll",
+                  functionName: "addEmployee",
+                  args: [address as Address, amount!],
                 },
               ],
-              apres: async () => {
-                await onFiche({ address: adresse, prenom, nom, poste, email, embauche });
+              after: async () => {
+                await onRecord({ address: address, firstName, lastName, jobTitle, email, hireDate });
               },
             });
-            onFermer();
+            onClose();
           }}
         >
           Inscrire le salarié
         </Button>
-      </ActionsFormulaire>
+      </FormActions>
     </Panel>
   );
 }
 
 /* ------------------------------------------------------------------ B4 */
 
-function PanneauSalaire({
-  adresse,
-  actuel,
-  nom,
-  onFermer,
-  onDemander,
+function SalaryPanel({
+  address,
+  current,
+  lastName,
+  onClose,
+  onRequest,
 }: {
-  adresse: Address;
-  actuel?: bigint;
-  nom: string;
-  onFermer: () => void;
-  onDemander: (o: Operation) => void;
+  address: Address;
+  current?: bigint;
+  lastName: string;
+  onClose: () => void;
+  onRequest: (o: Operation) => void;
 }) {
-  const [saisie, setSaisie] = useState("");
-  const montant = parseTokenOrNull(saisie);
+  const [input, setInput] = useState("");
+  const amount = parseTokenOrNull(input);
 
-  const inchange = montant !== null && actuel !== undefined && montant === actuel;
-  const pret = montant !== null && montant > 0n && !inchange;
+  const unchanged = amount !== null && current !== undefined && amount === current;
+  const ready = amount !== null && amount > 0n && !unchanged;
 
   return (
-    <Panel title={`Modifier le salaire — ${nom}`}>
+    <Panel title={`Modifier le salaire — ${lastName}`}>
       <DetailList className="mb-3">
         <DetailItem label="Salaire actuel">
-          {actuel !== undefined ? formatToken(actuel) : "…"}
+          {current !== undefined ? formatToken(current) : "…"}
         </DetailItem>
       </DetailList>
 
       <FormField label={`Nouveau salaire (${TOKEN_SYMBOL})`} required>
         <Input
-          value={saisie}
-          onChange={(e) => setSaisie(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
           inputMode="decimal"
           className="font-mono"
         />
       </FormField>
-      {inchange && (
+      {unchanged && (
         <FieldError className="mt-1">
           Identique au salaire actuel : le contrat rejetterait l&apos;opération.
         </FieldError>
       )}
 
-      <ActionsFormulaire onAnnuler={onFermer}>
+      <FormActions onCancel={onClose}>
         <Button
-          disabled={!pret}
+          disabled={!ready}
           onClick={() => {
-            onDemander({
-              titre: "Modifier un salaire",
+            onRequest({
+              title: "Modifier un salaire",
               code: "B4",
               message:
                 "Le nouveau salaire s'appliquera dès le prochain cycle. Les versements déjà effectués ne sont pas rétroactivement modifiés — la chaîne ne réécrit pas le passé.",
-              lignes: [
-                { label: "Salarié", valeur: shortAddress(adresse) },
+              rows: [
+                { label: "Salarié", value: shortAddress(address) },
                 {
                   label: "Ancien salaire",
-                  valeur: actuel !== undefined ? formatToken(actuel) : "—",
+                  value: current !== undefined ? formatToken(current) : "—",
                 },
-                { label: "Nouveau salaire", valeur: formatToken(montant!) },
+                { label: "Nouveau salaire", value: formatToken(amount!) },
               ],
-              appels: [
-                { cible: "payroll", fonction: "updateSalary", args: [adresse, montant!] },
+              calls: [
+                { target: "payroll", functionName: "updateSalary", args: [address, amount!] },
               ],
             });
-            onFermer();
+            onClose();
           }}
         >
           Enregistrer le nouveau salaire
         </Button>
-      </ActionsFormulaire>
+      </FormActions>
     </Panel>
   );
 }
 
 /* ------------------------------------------------------------------ B5 */
 
-function PanneauRetrait({
-  adresse,
-  nom,
-  onFermer,
-  onDemander,
-  onOublier,
+function WithdrawPanel({
+  address,
+  lastName,
+  onClose,
+  onRequest,
+  onForget,
 }: {
-  adresse: Address;
-  nom: string;
-  onFermer: () => void;
-  onDemander: (o: Operation) => void;
-  onOublier: (a: string) => Promise<boolean>;
+  address: Address;
+  lastName: string;
+  onClose: () => void;
+  onRequest: (o: Operation) => void;
+  onForget: (a: string) => Promise<boolean>;
 }) {
   const [confirmation, setConfirmation] = useState("");
-  const pret = confirmation.trim().toUpperCase() === "RETIRER";
+  const ready = confirmation.trim().toUpperCase() === "RETIRER";
 
   return (
-    <Panel title={`Retirer un salarié — ${nom}`}>
+    <Panel title={`Retirer un salarié — ${lastName}`}>
       <p className="mb-3 text-ink-2">
         Le retrait est définitif et prend effet immédiatement : dès la prochaine
         exécution, cette adresse ne recevra plus rien. Les versements passés restent
@@ -471,32 +471,32 @@ function PanneauRetrait({
         <Input value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
       </FormField>
 
-      <ActionsFormulaire onAnnuler={onFermer}>
+      <FormActions onCancel={onClose}>
         <Button
           variant="destructive"
-          disabled={!pret}
+          disabled={!ready}
           onClick={() => {
-            onDemander({
-              titre: "Retirer un salarié",
+            onRequest({
+              title: "Retirer un salarié",
               code: "B5",
               message:
                 "Cette adresse sera retirée de la liste des bénéficiaires. La masse salariale et la réserve immobilisée diminueront d'autant.",
-              lignes: [{ label: "Salarié", valeur: shortAddress(adresse) }],
-              appels: [
-                { cible: "payroll", fonction: "removeEmployee", args: [adresse] },
+              rows: [{ label: "Salarié", value: shortAddress(address) }],
+              calls: [
+                { target: "payroll", functionName: "removeEmployee", args: [address] },
               ],
-              apres: async () => {
-                if (await onOublier(adresse)) {
+              after: async () => {
+                if (await onForget(address)) {
                   toast.info("Identité hors chaîne effacée de la base.");
                 }
               },
             });
-            onFermer();
+            onClose();
           }}
         >
           Retirer définitivement
         </Button>
-      </ActionsFormulaire>
+      </FormActions>
     </Panel>
   );
 }
@@ -517,72 +517,72 @@ function PanneauRetrait({
  * chaîne ne fait pas que rendre le dispositif utilisable, elle lui rend une
  * faculté de rectification que la chaîne lui refuse.
  */
-function PanneauIdentite({
-  adresse,
-  fiche,
-  onFermer,
-  onFiche,
+function IdentityPanel({
+  address,
+  record,
+  onClose,
+  onRecord,
 }: {
-  adresse: Address;
-  fiche: Fiche | undefined;
-  onFermer: () => void;
-  onFiche: (f: Fiche) => Promise<boolean>;
+  address: Address;
+  record: EmployeeRecord | undefined;
+  onClose: () => void;
+  onRecord: (f: EmployeeRecord) => Promise<boolean>;
 }) {
-  const [prenom, setPrenom] = useState(fiche?.prenom ?? "");
-  const [nom, setNom] = useState(fiche?.nom ?? "");
-  const [poste, setPoste] = useState(fiche?.poste ?? "");
-  const [email, setEmail] = useState(fiche?.email ?? "");
-  const [embauche, setEmbauche] = useState(fiche?.embauche ?? "");
+  const [firstName, setFirstName] = useState(record?.firstName ?? "");
+  const [lastName, setLastName] = useState(record?.lastName ?? "");
+  const [jobTitle, setJobTitle] = useState(record?.jobTitle ?? "");
+  const [email, setEmail] = useState(record?.email ?? "");
+  const [hireDate, setHireDate] = useState(record?.hireDate ?? "");
 
-  const pret = prenom.trim().length > 0 && nom.trim().length > 0;
+  const ready = firstName.trim().length > 0 && lastName.trim().length > 0;
 
   return (
-    <Panel title={fiche ? "Modifier une identité" : "Renseigner une identité"}>
+    <Panel title={record ? "Modifier une identité" : "Renseigner une identité"}>
       <p className="mb-1 text-ink-2">
         Ces informations ne sont pas inscrites sur la chaîne et ne demandent
         aucune transaction. Elles servent à nommer le salarié dans
         l&apos;interface et sur ses bulletins de paie.
       </p>
-      <Hint className="mb-4 font-mono">{adresse}</Hint>
+      <Hint className="mb-4 font-mono">{address}</Hint>
 
       <RequiredLegend />
 
       <div className="grid gap-3 sm:grid-cols-2">
         <FormField label="Prénom" required>
-          <Input value={prenom} onChange={(e) => setPrenom(e.target.value)} />
+          <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} />
         </FormField>
         <FormField label="Nom" required>
-          <Input value={nom} onChange={(e) => setNom(e.target.value)} />
+          <Input value={lastName} onChange={(e) => setLastName(e.target.value)} />
         </FormField>
         <FormField label="Poste">
-          <Input value={poste} onChange={(e) => setPoste(e.target.value)} />
+          <Input value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
         </FormField>
         <FormField label="Date d'embauche">
-          <Input type="date" value={embauche} onChange={(e) => setEmbauche(e.target.value)} />
+          <Input type="date" value={hireDate} onChange={(e) => setHireDate(e.target.value)} />
         </FormField>
         <FormField label="Adresse électronique" className="sm:col-span-2">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </FormField>
       </div>
 
-      <ActionsFormulaire onAnnuler={onFermer}>
+      <FormActions onCancel={onClose}>
         <Button
-          disabled={!pret}
+          disabled={!ready}
           onClick={() => {
-            onFiche({
-              address: adresse.toLowerCase(),
-              prenom: prenom.trim(),
-              nom: nom.trim(),
-              poste: poste.trim(),
+            onRecord({
+              address: address.toLowerCase(),
+              firstName: firstName.trim(),
+              lastName: lastName.trim(),
+              jobTitle: jobTitle.trim(),
               email: email.trim(),
-              embauche,
+              hireDate,
             });
-            onFermer();
+            onClose();
           }}
         >
           Enregistrer
         </Button>
-      </ActionsFormulaire>
+      </FormActions>
     </Panel>
   );
 }

@@ -1,4 +1,4 @@
-import { engendrerAlea } from "@/lib/server/session";
+import { generateNonce } from "@/lib/server/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,5 +9,5 @@ export const dynamic = "force-dynamic";
  * interceptée serait rejouable indéfiniment.
  */
 export async function POST(): Promise<Response> {
-  return Response.json({ alea: engendrerAlea() });
+  return Response.json({ nonce: generateNonce() });
 }

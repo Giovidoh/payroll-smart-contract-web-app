@@ -13,32 +13,32 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { EventBadge } from "../EventBadge";
 import { RegisteredMark } from "../RegisteredMark";
 import {
-  useEvenements,
-  type TypeEvenement,
-  type Evenement,
+  useEvents,
+  type EventType,
+  type PayrollEvent,
 } from "../../hooks/use-events";
-import { useFiches, nomAffiche } from "../../hooks/use-directory";
-import { useEmettreBulletin, useRegistre, repere } from "../../hooks/use-bulletins";
+import { useRecords, displayName } from "../../hooks/use-directory";
+import { useIssuePayslip, usePayslipRegistry, logKey } from "../../hooks/use-payslips";
 
-const FAMILLES: Record<string, TypeEvenement[]> = {
-  tout: [],
-  paie: ["PayrollCompleted", "SalaryPaid"],
-  tresorerie: ["FundsDeposited", "AmountWithdrawn"],
-  personnel: ["NewEmployeeAdded", "EmployeeRemoved", "SalaryUpdated"],
+const CATEGORIES: Record<string, EventType[]> = {
+  all: [],
+  payrollRun: ["PayrollCompleted", "SalaryPaid"],
+  treasury: ["FundsDeposited", "AmountWithdrawn"],
+  staff: ["NewEmployeeAdded", "EmployeeRemoved", "SalaryUpdated"],
 };
 
-export default function Historique() {
-  const { data: evenements, isLoading, isError } = useEvenements();
-  const fiches = useFiches();
-  const emettre = useEmettreBulletin();
-  const { emis } = useRegistre();
-  const [famille, setFamille] = useState<keyof typeof FAMILLES>("tout");
+export default function PayrollHistory() {
+  const { data: events, isLoading, isError } = useEvents();
+  const records = useRecords();
+  const issue = useIssuePayslip();
+  const { issued } = usePayslipRegistry();
+  const [category, setCategory] = useState<keyof typeof CATEGORIES>("tout");
 
-  const lignes = useMemo(() => {
-    const tous = evenements ?? [];
-    if (famille === "tout") return tous;
-    return tous.filter((e) => FAMILLES[famille].includes(e.type));
-  }, [evenements, famille]);
+  const rows = useMemo(() => {
+    const all = events ?? [];
+    if (category === "tout") return all;
+    return all.filter((e) => CATEGORIES[category].includes(e.type));
+  }, [events, category]);
 
   /*
    * SF-08 : l'employeur édite les bulletins d'un cycle. Un cycle, c'est une
@@ -48,23 +48,23 @@ export default function Historique() {
    * distinguent entre eux par leur index de journal.
    */
   const cycles = useMemo(() => {
-    const parHash = new Map<string, Evenement[]>();
-    for (const e of evenements ?? []) {
+    const byHash = new Map<string, PayrollEvent[]>();
+    for (const e of events ?? []) {
       if (e.type !== "SalaryPaid") continue;
-      const clef = e.hash.toLowerCase();
-      const deja = parHash.get(clef);
-      if (deja) deja.push(e);
-      else parHash.set(clef, [e]);
+      const key = e.hash.toLowerCase();
+      const already = byHash.get(key);
+      if (already) already.push(e);
+      else byHash.set(key, [e]);
     }
-    return parHash;
-  }, [evenements]);
+    return byHash;
+  }, [events]);
 
   /** Émet les bulletins un à un : chaque salarié a droit au sien, nommément. */
-  const emettreCycle = async (hash: string) => {
+  const issueCycle = async (hash: string) => {
     for (const e of cycles.get(hash.toLowerCase()) ?? []) {
-      await emettre({
-        adresse: e.sujet!,
-        montant: e.montant!,
+      await issue({
+        address: e.subject!,
+        amount: e.amount!,
         date: e.date,
         hash: e.hash,
         logIndex: e.logIndex,
@@ -74,12 +74,12 @@ export default function Historique() {
 
   return (
     <Panel
-      title={`Historique (${lignes.length})`}
+      title={`Historique (${rows.length})`}
       action={
         <NativeSelect
           size="sm"
-          value={famille}
-          onChange={(e) => setFamille(e.target.value as keyof typeof FAMILLES)}
+          value={category}
+          onChange={(e) => setCategory(e.target.value as keyof typeof CATEGORIES)}
         >
           <option value="tout">Tout</option>
           <option value="paie">Paie</option>
@@ -98,7 +98,7 @@ export default function Historique() {
         <SkeletonRows rows={8} />
       ) : isError ? (
         <LogsReadError />
-      ) : lignes.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState title="Aucun événement">
           Rien à afficher pour ce filtre sur la profondeur de journaux consultée.
         </EmptyState>
@@ -115,7 +115,7 @@ export default function Historique() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {lignes.map((e) => (
+            {rows.map((e) => (
               <TableRow key={`${e.hash}-${e.logIndex}`}>
                 <TableCell className="whitespace-nowrap font-mono text-ink-2">
                   {formatDateTime(e.date)}
@@ -125,16 +125,16 @@ export default function Historique() {
                 </TableCell>
                 <TableCell className="text-ink-2">
                   {e.type === "PayrollCompleted"
-                    ? `${e.effectif} salariés`
-                    : e.sujet
-                      ? nomAffiche(fiches[e.sujet.toLowerCase()], e.sujet)
+                    ? `${e.headcount} salariés`
+                    : e.subject
+                      ? displayName(records[e.subject.toLowerCase()], e.subject)
                       : "—"}
                 </TableCell>
                 <TableCell align="right" className="whitespace-nowrap font-mono">
-                  {e.montant !== undefined ? formatToken(e.montant) : "—"}
-                  {e.type === "SalaryUpdated" && e.ancienMontant !== undefined && (
+                  {e.amount !== undefined ? formatToken(e.amount) : "—"}
+                  {e.type === "SalaryUpdated" && e.previousAmount !== undefined && (
                     <span className="ml-1 text-[11px] text-ink-3">
-                      (avant {formatToken(e.ancienMontant, false)})
+                      (avant {formatToken(e.previousAmount, false)})
                     </span>
                   )}
                 </TableCell>
@@ -148,9 +148,9 @@ export default function Historique() {
                         variant="secondary"
                         size="xs"
                         onClick={() =>
-                          emettre({
-                            adresse: e.sujet!,
-                            montant: e.montant!,
+                          issue({
+                            address: e.subject!,
+                            amount: e.amount!,
                             date: e.date,
                             hash: e.hash,
                             logIndex: e.logIndex,
@@ -159,13 +159,13 @@ export default function Historique() {
                       >
                         Éditer
                       </Button>
-                      {emis.has(repere(e.hash, e.logIndex)) && <RegisteredMark />}
+                      {issued.has(logKey(e.hash, e.logIndex)) && <RegisteredMark />}
                     </>
                   ) : e.type === "PayrollCompleted" ? (
                     <Button
                       variant="secondary"
                       size="xs"
-                      onClick={() => emettreCycle(e.hash)}
+                      onClick={() => issueCycle(e.hash)}
                       disabled={(cycles.get(e.hash.toLowerCase()) ?? []).length === 0}
                       className="disabled:opacity-40"
                       title="Éditer un bulletin pour chaque salarié payé dans ce cycle."

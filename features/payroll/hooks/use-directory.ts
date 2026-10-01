@@ -16,60 +16,60 @@ import { useSession } from "./use-session";
  * personnel entier au propriétaire, sa seule fiche au salarié. C'est la garde
  * de `getEmployee` rejouée hors chaîne, faute de `msg.sender`.
  */
-export type Fiche = {
+export type EmployeeRecord = {
   /** Adresse en chaîne, en minuscules, qui sert de clef. */
   address: string;
-  prenom: string;
-  nom: string;
-  poste: string;
+  firstName: string;
+  lastName: string;
+  jobTitle: string;
   email: string;
   /** Date d'embauche au format ISO (AAAA-MM-JJ), ou chaîne vide. */
-  embauche: string;
+  hireDate: string;
 };
 
-export type Repertoire = Record<string, Fiche>;
+export type Directory = Record<string, EmployeeRecord>;
 
 /** Ligne telle que la base la rend. */
-type Ligne = {
-  adresse_ethereum: string;
-  nom: string;
-  prenom: string;
-  poste: string;
+type Row = {
+  address: string;
+  lastName: string;
+  firstName: string;
+  jobTitle: string;
   email: string;
-  date_embauche: string | null;
+  hireDate: string | null;
 };
 
-const normaliser = (l: Ligne): Fiche => ({
-  address: l.adresse_ethereum.toLowerCase(),
-  prenom: l.prenom,
-  nom: l.nom,
-  poste: l.poste,
+const normalize = (l: Row): EmployeeRecord => ({
+  address: l.address.toLowerCase(),
+  firstName: l.firstName,
+  lastName: l.lastName,
+  jobTitle: l.jobTitle,
   email: l.email,
-  embauche: l.date_embauche ?? "",
+  hireDate: l.hireDate ?? "",
 });
 
-const CLEF = ["repertoire"] as const;
+const KEY = ["directory"] as const;
 
-async function json<T>(chemin: string, init?: RequestInit): Promise<T> {
-  const r = await fetch(chemin, {
+async function json<T>(path: string, init?: RequestInit): Promise<T> {
+  const r = await fetch(path, {
     ...init,
     headers: { "content-type": "application/json", ...init?.headers },
   });
-  const corps = (await r.json().catch(() => null)) as (T & { erreur?: string }) | null;
-  if (!r.ok) throw new Error(corps?.erreur ?? `Le serveur a répondu ${r.status}.`);
-  return corps as T;
+  const body = (await r.json().catch(() => null)) as (T & { error?: string }) | null;
+  if (!r.ok) throw new Error(body?.error ?? `Le serveur a répondu ${r.status}.`);
+  return body as T;
 }
 
-const VIDE: Repertoire = {};
+const EMPTY: Directory = {};
 
-function useRequete() {
+function useDirectoryQuery() {
   const { active } = useSession();
   return useQuery({
-    queryKey: CLEF,
-    queryFn: async (): Promise<Repertoire> => {
-      const { fiches } = await json<{ fiches: Ligne[] }>("/api/employees");
-      const r: Repertoire = {};
-      for (const l of fiches) r[l.adresse_ethereum.toLowerCase()] = normaliser(l);
+    queryKey: KEY,
+    queryFn: async (): Promise<Directory> => {
+      const { records } = await json<{ records: Row[] }>("/api/employees");
+      const r: Directory = {};
+      for (const l of records) r[l.address.toLowerCase()] = normalize(l);
       return r;
     },
     // Sans session, le serveur refuse : inutile de l'interroger pour le savoir.
@@ -82,8 +82,8 @@ function useRequete() {
  * Répertoire du contrat courant. Même forme que l'ancien magasin local, pour
  * que les écrans n'aient pas à connaître la provenance des fiches.
  */
-export function useFiches(): Repertoire {
-  return useRequete().data ?? VIDE;
+export function useRecords(): Directory {
+  return useDirectoryQuery().data ?? EMPTY;
 }
 
 /**
@@ -92,12 +92,12 @@ export function useFiches(): Repertoire {
  * afficher « identité non renseignée » alors que la lecture a été refusée
  * reviendrait à mentir sur l'état du système.
  */
-export function useEtatRepertoire() {
-  const r = useRequete();
+export function useDirectoryState() {
+  const r = useDirectoryQuery();
   return {
-    enCours: r.isLoading,
-    echec: r.isError,
-    erreur: r.error as Error | undefined,
+    busy: r.isLoading,
+    failure: r.isError,
+    error: r.error as Error | undefined,
   };
 }
 
@@ -110,31 +110,31 @@ export function useEtatRepertoire() {
  * croit enregistrée et qui ne l'est pas produirait un bulletin sans identité, le
  * jour de la paie.
  */
-export function useEcrireFiche() {
+export function useWriteRecord() {
   const qc = useQueryClient();
-  const rafraichir = () => qc.invalidateQueries({ queryKey: CLEF });
+  const refresh = () => qc.invalidateQueries({ queryKey: KEY });
 
-  const enregistrer = useMutation({
-    mutationFn: (fiche: Fiche) =>
-      json<unknown>(`/api/employees/${fiche.address}`, {
+  const save = useMutation({
+    mutationFn: (record: EmployeeRecord) =>
+      json<unknown>(`/api/employees/${record.address}`, {
         method: "PUT",
         body: JSON.stringify({
-          nom: fiche.nom,
-          prenom: fiche.prenom,
-          poste: fiche.poste,
-          email: fiche.email,
-          embauche: fiche.embauche,
+          lastName: record.lastName,
+          firstName: record.firstName,
+          jobTitle: record.jobTitle,
+          email: record.email,
+          hireDate: record.hireDate,
         }),
       }),
-    onSuccess: rafraichir,
+    onSuccess: refresh,
     onError: (e: Error) =>
       toast.error(`La fiche n'a pas été enregistrée : ${e.message}`),
   });
 
-  const supprimer = useMutation({
+  const remove = useMutation({
     mutationFn: (address: string) =>
       json<unknown>(`/api/employees/${address}`, { method: "DELETE" }),
-    onSuccess: rafraichir,
+    onSuccess: refresh,
     onError: (e: Error) => toast.error(`La fiche n'a pas été retirée : ${e.message}`),
   });
 
@@ -145,24 +145,24 @@ export function useEcrireFiche() {
    * lui, est déjà signalé par `onError`, d'où le rejet absorbé ici.
    */
   return {
-    enregistrer: (fiche: Fiche) =>
-      enregistrer.mutateAsync(fiche).then(
+    save: (record: EmployeeRecord) =>
+      save.mutateAsync(record).then(
         () => true,
         () => false
       ),
-    supprimer: (address: string) =>
-      supprimer.mutateAsync(address).then(
+    remove: (address: string) =>
+      remove.mutateAsync(address).then(
         () => true,
         () => false
       ),
-    enCours: enregistrer.isPending || supprimer.isPending,
+    busy: save.isPending || remove.isPending,
   };
 }
 
 /** Nom affichable d'une adresse : la fiche si elle existe, sinon l'adresse abrégée. */
-export function nomAffiche(fiche: Fiche | undefined, address: string): string {
-  if (fiche && (fiche.prenom || fiche.nom)) {
-    return `${fiche.prenom} ${fiche.nom}`.trim();
+export function displayName(record: EmployeeRecord | undefined, address: string): string {
+  if (record && (record.firstName || record.lastName)) {
+    return `${record.firstName} ${record.lastName}`.trim();
   }
   return `${address.slice(0, 6)}…${address.slice(-4)}`;
 }

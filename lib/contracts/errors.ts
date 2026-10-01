@@ -12,9 +12,9 @@ import { formatToken } from "@/lib/format";
  *
  * Les arguments sont ceux déclarés dans le contrat ; leur ordre compte.
  */
-type Traducteur = (args: readonly unknown[]) => string;
+type Translator = (args: readonly unknown[]) => string;
 
-const MESSAGES: Record<string, string | Traducteur> = {
+const MESSAGES: Record<string, string | Translator> = {
   // --- Ownable / Ownable2Step -------------------------------------------
   OwnableUnauthorizedAccount:
     "Cette action est réservée au propriétaire du contrat.",
@@ -51,10 +51,10 @@ const MESSAGES: Record<string, string | Traducteur> = {
   Payroll__SalaryTransferFailed: (args) =>
     `Le versement au salarié ${args[0]} a échoué.`,
   Payroll__TooEarlyForNextPayroll: (args) => {
-    const quand = new Date(Number(args[0] as bigint) * 1000);
+    const when = new Date(Number(args[0] as bigint) * 1000);
     return (
       `Trop tôt : le garde-temps du contrat interdit un second versement ` +
-      `avant le ${quand.toLocaleString("fr-FR")}.`
+      `avant le ${when.toLocaleString("fr-FR")}.`
     );
   },
   Payroll__PayrollIntervalMustBeGreaterThanZero:
@@ -62,30 +62,30 @@ const MESSAGES: Record<string, string | Traducteur> = {
 };
 
 /** Ramène n'importe quelle erreur remontée par viem à une phrase française. */
-export function decodeContractError(erreur: unknown): string {
-  if (erreur instanceof BaseError) {
-    if (erreur.walk((e) => e instanceof UserRejectedRequestError)) {
+export function decodeContractError(error: unknown): string {
+  if (error instanceof BaseError) {
+    if (error.walk((e) => e instanceof UserRejectedRequestError)) {
       return "Transaction refusée dans le portefeuille.";
     }
 
-    const reverted = erreur.walk(
+    const reverted = error.walk(
       (e) => e instanceof ContractFunctionRevertedError
     ) as ContractFunctionRevertedError | null;
 
     if (reverted?.data?.errorName) {
-      const entree = MESSAGES[reverted.data.errorName];
-      if (typeof entree === "function") {
-        return entree(reverted.data.args ?? []);
+      const entry = MESSAGES[reverted.data.errorName];
+      if (typeof entry === "function") {
+        return entry(reverted.data.args ?? []);
       }
-      if (typeof entree === "string") {
-        return entree;
+      if (typeof entry === "string") {
+        return entry;
       }
       return `Le contrat a rejeté l'opération (${reverted.data.errorName}).`;
     }
 
-    return erreur.shortMessage || erreur.message;
+    return error.shortMessage || error.message;
   }
 
-  if (erreur instanceof Error) return erreur.message;
+  if (error instanceof Error) return error.message;
   return "Une erreur inattendue est survenue.";
 }

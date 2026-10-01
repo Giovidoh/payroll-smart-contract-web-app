@@ -4,10 +4,10 @@ import { parseSiweMessage, verifySiweMessage } from "viem/siwe";
 import { CHAIN } from "@/lib/contracts/config";
 import { AUTH_DOMAIN } from "@/lib/server/env";
 import {
-  consommerAlea,
-  ouvrirSession,
-  fermerSession,
-  adresseAppelante,
+  consumeNonce,
+  openSession,
+  closeSession,
+  callerAddress,
 } from "@/lib/server/session";
 
 export const runtime = "nodejs";
@@ -24,22 +24,22 @@ const client = createPublicClient({
   transport: http(process.env.NEXT_PUBLIC_RPC_URL || undefined),
 });
 
-const Corps = z.object({
+const SessionBody = z.object({
   message: z.string().min(1).max(4000),
   signature: z.string().regex(/^0x[0-9a-fA-F]+$/),
 });
 
-export async function POST(requete: Request): Promise<Response> {
-  const analyse = Corps.safeParse(await requete.json().catch(() => null));
-  if (!analyse.success) {
-    return Response.json({ erreur: "Requête mal formée." }, { status: 400 });
+export async function POST(request: Request): Promise<Response> {
+  const parsed = SessionBody.safeParse(await request.json().catch(() => null));
+  if (!parsed.success) {
+    return Response.json({ error: "Requête mal formée." }, { status: 400 });
   }
 
-  const { message, signature } = analyse.data;
+  const { message, signature } = parsed.data;
 
-  const champs = parseSiweMessage(message);
-  if (!champs.nonce || !champs.address) {
-    return Response.json({ erreur: "Message d'authentification incomplet." }, { status: 400 });
+  const fields = parseSiweMessage(message);
+  if (!fields.nonce || !fields.address) {
+    return Response.json({ error: "Message d'authentification incomplet." }, { status: 400 });
   }
 
   /*
@@ -47,9 +47,9 @@ export async function POST(requete: Request): Promise<Response> {
    * autrement, un même aléa pourrait alimenter autant de tentatives que
    * souhaité. Une signature invalide coûte donc un aléa, ce qui est voulu.
    */
-  if (!consommerAlea(champs.nonce)) {
+  if (!consumeNonce(fields.nonce)) {
     return Response.json(
-      { erreur: "Aléa inconnu ou expiré. Recommencez l'authentification." },
+      { error: "Aléa inconnu ou expiré. Recommencez l'authentification." },
       { status: 401 }
     );
   }
@@ -63,34 +63,34 @@ export async function POST(requete: Request): Promise<Response> {
    * L'aléa est passé explicitement pour que la vérification porte sur celui
    * qui vient d'être consommé, et non sur un autre que le message porterait.
    */
-  const valide = await verifySiweMessage(client, {
+  const valid = await verifySiweMessage(client, {
     message,
     signature: signature as `0x${string}`,
     domain: AUTH_DOMAIN,
-    nonce: champs.nonce,
+    nonce: fields.nonce,
   }).catch(() => false);
 
-  if (!valide) {
-    return Response.json({ erreur: "Signature invalide." }, { status: 401 });
+  if (!valid) {
+    return Response.json({ error: "Signature invalide." }, { status: 401 });
   }
 
-  if (champs.chainId !== undefined && champs.chainId !== CHAIN.id) {
+  if (fields.chainId !== undefined && fields.chainId !== CHAIN.id) {
     return Response.json(
-      { erreur: `Message signé pour un autre réseau que ${CHAIN.name}.` },
+      { error: `Message signé pour un autre réseau que ${CHAIN.name}.` },
       { status: 401 }
     );
   }
 
-  await ouvrirSession(champs.address);
-  return Response.json({ adresse: champs.address.toLowerCase() });
+  await openSession(fields.address);
+  return Response.json({ address: fields.address.toLowerCase() });
 }
 
 /** État de la session courante, pour que le client sache s'il doit faire signer. */
 export async function GET(): Promise<Response> {
-  return Response.json({ adresse: await adresseAppelante() });
+  return Response.json({ address: await callerAddress() });
 }
 
 export async function DELETE(): Promise<Response> {
-  await fermerSession();
-  return Response.json({ adresse: null });
+  await closeSession();
+  return Response.json({ address: null });
 }

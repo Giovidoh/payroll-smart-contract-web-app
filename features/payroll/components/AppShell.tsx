@@ -10,11 +10,11 @@ import { shortAddress } from "@/lib/format";
 import { CHAIN } from "@/lib/contracts/config";
 import type { Role } from "../hooks/use-payroll";
 
-export type Ecran =
+export type ScreenCode =
   | "B1" | "B2" | "B3" | "B4" | "B5" | "B6" | "B7" | "B8" | "B9" | "B10"
   | "C1" | "C2" | "C3" | "C4" | "C5";
 
-export const TITRES: Record<Ecran, string> = {
+export const TITLES: Record<ScreenCode, string> = {
   B1: "Vue d'ensemble",
   B2: "Salariés",
   B3: "Ajouter un salarié",
@@ -32,11 +32,11 @@ export const TITRES: Record<Ecran, string> = {
   C5: "Déclencher la paie",
 };
 
-const NAV_EMPLOYEUR: Ecran[] = ["B1", "B2", "B6", "B7", "B8", "B9"];
-const NAV_SALARIE: Ecran[] = ["C1", "C2", "C3", "C4"];
+const EMPLOYER_NAV: ScreenCode[] = ["B1", "B2", "B6", "B7", "B8", "B9"];
+const EMPLOYEE_NAV: ScreenCode[] = ["C1", "C2", "C3", "C4"];
 
 /** Les sous-écrans B3/B4/B5 restent sous l'entrée « Salariés » dans la navigation. */
-const GROUPE: Partial<Record<Ecran, Ecran>> = {
+const GROUP: Partial<Record<ScreenCode, ScreenCode>> = {
   B3: "B2",
   B4: "B2",
   B5: "B2",
@@ -45,21 +45,21 @@ const GROUPE: Partial<Record<Ecran, Ecran>> = {
 
 export default function AppShell({
   role,
-  ecran,
-  onNaviguer,
+  screen,
+  onNavigate,
   children,
 }: {
   role: Role;
-  ecran: Ecran;
-  onNaviguer: (e: Ecran) => void;
+  screen: ScreenCode;
+  onNavigate: (e: ScreenCode) => void;
   children: React.ReactNode;
 }) {
   const { address } = useAccount();
   const { disconnect } = useDisconnect();
-  const [menuOuvert, setMenuOuvert] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
-  const nav = role === "employeur" ? NAV_EMPLOYEUR : NAV_SALARIE;
-  const actif = GROUPE[ecran] ?? ecran;
+  const nav = role === "employer" ? EMPLOYER_NAV : EMPLOYEE_NAV;
+  const active = GROUP[screen] ?? screen;
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
@@ -70,15 +70,15 @@ export default function AppShell({
             <div>
               <div className="font-semibold">Paie Blockchain</div>
               <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.08em] text-ink-3">
-                {role === "employeur" ? "Espace employeur" : "Espace salarié"}
+                {role === "employer" ? "Espace employeur" : "Espace salarié"}
               </div>
             </div>
             <Button
               variant="outline"
               size="none"
               className="px-2 py-1 md:hidden"
-              onClick={() => setMenuOuvert((v) => !v)}
-              aria-expanded={menuOuvert}
+              onClick={() => setMenuOpen((v) => !v)}
+              aria-expanded={menuOpen}
             >
               Menu
             </Button>
@@ -87,33 +87,33 @@ export default function AppShell({
           <nav
             className={cn(
               "grid gap-1 px-3 pb-4",
-              menuOuvert ? "grid" : "hidden md:grid"
+              menuOpen ? "grid" : "hidden md:grid"
             )}
           >
             {nav.map((e) => (
               <NavItem
                 key={e}
-                actif={actif === e}
+                active={active === e}
                 onClick={() => {
-                  onNaviguer(e);
-                  setMenuOuvert(false);
+                  onNavigate(e);
+                  setMenuOpen(false);
                 }}
               >
-                {TITRES[e]}
+                {TITLES[e]}
               </NavItem>
             ))}
 
-            {role === "salarie" && (
+            {role === "employee" && (
               <>
                 <hr className="my-2 border-line" />
                 <NavItem
-                  actif={ecran === "C5"}
+                  active={screen === "C5"}
                   onClick={() => {
-                    onNaviguer("C5");
-                    setMenuOuvert(false);
+                    onNavigate("C5");
+                    setMenuOpen(false);
                   }}
                 >
-                  {TITRES.C5}
+                  {TITLES.C5}
                 </NavItem>
               </>
             )}
@@ -144,9 +144,9 @@ export default function AppShell({
         <div className="min-w-0 flex-1">
           <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 md:px-6">
             <div>
-              <div className="font-semibold">{TITRES[ecran]}</div>
+              <div className="font-semibold">{TITLES[screen]}</div>
               <div className="font-mono text-[11px] text-ink-3">
-                {ecran} · {CHAIN.name}
+                {screen} · {CHAIN.name}
               </div>
             </div>
             <ThemeToggle />
@@ -160,11 +160,11 @@ export default function AppShell({
 }
 
 function NavItem({
-  actif,
+  active,
   onClick,
   children,
 }: {
-  actif: boolean;
+  active: boolean;
   onClick: () => void;
   children: React.ReactNode;
 }) {
@@ -173,7 +173,7 @@ function NavItem({
       onClick={onClick}
       className={cn(
         "rounded-sm border px-2.5 py-1.5 text-left",
-        actif
+        active
           ? "border-line bg-surface-2 font-semibold shadow-[inset_2px_0_0_var(--primary)]"
           : "border-transparent hover:bg-surface-2"
       )}

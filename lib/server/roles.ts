@@ -3,7 +3,7 @@ import "server-only";
 import { createPublicClient, http } from "viem";
 import { payrollAbi } from "@/lib/contracts/payroll-abi";
 import { CHAIN, PAYROLL_ADDRESS } from "@/lib/contracts/config";
-import { adresseAppelante } from "./session";
+import { callerAddress } from "./session";
 
 /**
  * Une base de données n'a pas de `msg.sender`.
@@ -21,27 +21,27 @@ const client = createPublicClient({
 });
 
 /** Le propriétaire change rarement ; l'interroger à chaque requête serait inutile. */
-const DUREE_CACHE = 30_000;
-let cache: { adresse: string; releveA: number } | null = null;
+const CACHE_TTL = 30_000;
+let cache: { address: string; fetchedAt: number } | null = null;
 
-async function proprietaire(): Promise<string> {
-  if (cache && Date.now() - cache.releveA < DUREE_CACHE) return cache.adresse;
+async function readOwner(): Promise<string> {
+  if (cache && Date.now() - cache.fetchedAt < CACHE_TTL) return cache.address;
 
-  const adresse = (await client.readContract({
+  const address = (await client.readContract({
     abi: payrollAbi,
     address: PAYROLL_ADDRESS,
     functionName: "owner",
   })) as string;
 
-  cache = { adresse: adresse.toLowerCase(), releveA: Date.now() };
-  return cache.adresse;
+  cache = { address: address.toLowerCase(), fetchedAt: Date.now() };
+  return cache.address;
 }
 
-export type Appelant = {
-  adresse: string;
-  estProprietaire: boolean;
+export type Caller = {
+  address: string;
+  isOwner: boolean;
   /** Déploiement auquel la requête se rapporte, pris de la configuration serveur. */
-  contrat: string;
+  contract: string;
 };
 
 /**
@@ -50,14 +50,14 @@ export type Appelant = {
  * Le contrat n'est jamais pris de la requête : un appelant qui choisirait son
  * cloisonnement lirait le personnel d'un autre déploiement.
  */
-export async function identifier(): Promise<Appelant | null> {
-  const adresse = await adresseAppelante();
-  if (!adresse) return null;
+export async function identifier(): Promise<Caller | null> {
+  const address = await callerAddress();
+  if (!address) return null;
 
   return {
-    adresse,
-    estProprietaire: adresse === (await proprietaire()),
-    contrat: PAYROLL_ADDRESS.toLowerCase(),
+    address,
+    isOwner: address === (await readOwner()),
+    contract: PAYROLL_ADDRESS.toLowerCase(),
   };
 }
 
@@ -65,12 +65,12 @@ export async function identifier(): Promise<Appelant | null> {
 /* Réponses normalisées                                                       */
 /* -------------------------------------------------------------------------- */
 
-export function refus(message: string, code = 403): Response {
-  return Response.json({ erreur: message }, { status: code });
+export function reject(message: string, code = 403): Response {
+  return Response.json({ error: message }, { status: code });
 }
 
-export const NON_AUTHENTIFIE = () =>
-  refus("Session absente ou expirée. Signez pour vous authentifier.", 401);
+export const UNAUTHENTICATED = () =>
+  reject("Session absente ou expirée. Signez pour vous authentifier.", 401);
 
-export const RESERVE_EMPLOYEUR = () =>
-  refus("Opération réservée au propriétaire du contrat.", 403);
+export const OWNER_ONLY = () =>
+  reject("Opération réservée au propriétaire du contrat.", 403);

@@ -15,19 +15,19 @@ export const COOKIE_SESSION = "paie-session";
  * Le sceau interdit la falsification ; il n'interdit pas la lecture. Le cookie
  * ne contient donc qu'une adresse publique, jamais de donnée nominative.
  */
-type Charge = { adresse: string; echeance: number };
+type Loaded = { address: string; dueDate: number };
 
-function sceller(charge: Charge): string {
-  const corps = Buffer.from(JSON.stringify(charge)).toString("base64url");
-  const sceau = createHmac("sha256", SESSION_SECRET).update(corps).digest("base64url");
-  return `${corps}.${sceau}`;
+function seal(loaded: Loaded): string {
+  const body = Buffer.from(JSON.stringify(loaded)).toString("base64url");
+  const sealValue = createHmac("sha256", SESSION_SECRET).update(body).digest("base64url");
+  return `${body}.${sealValue}`;
 }
 
-function desceller(jeton: string): Charge | null {
-  const [corps, sceau] = jeton.split(".");
-  if (!corps || !sceau) return null;
+function unseal(token: string): Loaded | null {
+  const [body, sealValue] = token.split(".");
+  if (!body || !sealValue) return null;
 
-  const attendu = createHmac("sha256", SESSION_SECRET).update(corps).digest("base64url");
+  const expected = createHmac("sha256", SESSION_SECRET).update(body).digest("base64url");
 
   /*
    * Comparaison à durée constante. Une comparaison ordinaire s'arrête au
@@ -35,29 +35,29 @@ function desceller(jeton: string): Charge | null {
    * nombre d'octets corrects, et permettrait de reconstituer le sceau octet
    * par octet.
    */
-  const a = Buffer.from(sceau);
-  const b = Buffer.from(attendu);
+  const a = Buffer.from(sealValue);
+  const b = Buffer.from(expected);
   if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
 
   try {
-    const charge = JSON.parse(Buffer.from(corps, "base64url").toString()) as Charge;
-    if (typeof charge.adresse !== "string" || typeof charge.echeance !== "number") {
+    const loaded = JSON.parse(Buffer.from(body, "base64url").toString()) as Loaded;
+    if (typeof loaded.address !== "string" || typeof loaded.dueDate !== "number") {
       return null;
     }
-    if (charge.echeance < Math.floor(Date.now() / 1000)) return null;
-    return charge;
+    if (loaded.dueDate < Math.floor(Date.now() / 1000)) return null;
+    return loaded;
   } catch {
     return null;
   }
 }
 
-export async function ouvrirSession(adresse: Address): Promise<void> {
-  const jeton = sceller({
-    adresse: adresse.toLowerCase(),
-    echeance: Math.floor(Date.now() / 1000) + SESSION_TTL,
+export async function openSession(address: Address): Promise<void> {
+  const token = seal({
+    address: address.toLowerCase(),
+    dueDate: Math.floor(Date.now() / 1000) + SESSION_TTL,
   });
 
-  (await cookies()).set(COOKIE_SESSION, jeton, {
+  (await cookies()).set(COOKIE_SESSION, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -66,15 +66,15 @@ export async function ouvrirSession(adresse: Address): Promise<void> {
   });
 }
 
-export async function fermerSession(): Promise<void> {
+export async function closeSession(): Promise<void> {
   (await cookies()).delete(COOKIE_SESSION);
 }
 
 /** Adresse de l'appelant, ou `null` si la session est absente, expirée ou falsifiée. */
-export async function adresseAppelante(): Promise<string | null> {
-  const jeton = (await cookies()).get(COOKIE_SESSION)?.value;
-  if (!jeton) return null;
-  return desceller(jeton)?.adresse ?? null;
+export async function callerAddress(): Promise<string | null> {
+  const token = (await cookies()).get(COOKIE_SESSION)?.value;
+  if (!token) return null;
+  return unseal(token)?.address ?? null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -89,26 +89,26 @@ export async function adresseAppelante(): Promise<string | null> {
  * usuelle est une table ou un cache partagé ; elle sort du périmètre de ce
  * travail, dont la couche hors chaîne sert une démonstration mono-instance.
  */
-const ALEAS = new Map<string, number>();
+const NONCES = new Map<string, number>();
 
-export function engendrerAlea(): string {
-  purger();
-  const alea = randomBytes(16).toString("hex");
-  ALEAS.set(alea, Math.floor(Date.now() / 1000) + NONCE_TTL);
-  return alea;
+export function generateNonce(): string {
+  purge();
+  const nonce = randomBytes(16).toString("hex");
+  NONCES.set(nonce, Math.floor(Date.now() / 1000) + NONCE_TTL);
+  return nonce;
 }
 
 /** Consomme l'aléa : un même aléa ne peut servir qu'une fois, ce qui ferme le rejeu. */
-export function consommerAlea(alea: string): boolean {
-  purger();
-  if (!ALEAS.has(alea)) return false;
-  ALEAS.delete(alea);
+export function consumeNonce(nonce: string): boolean {
+  purge();
+  if (!NONCES.has(nonce)) return false;
+  NONCES.delete(nonce);
   return true;
 }
 
-function purger(): void {
-  const maintenant = Math.floor(Date.now() / 1000);
-  for (const [alea, echeance] of ALEAS) {
-    if (echeance < maintenant) ALEAS.delete(alea);
+function purge(): void {
+  const now = Math.floor(Date.now() / 1000);
+  for (const [nonce, dueDate] of NONCES) {
+    if (dueDate < now) NONCES.delete(nonce);
   }
 }

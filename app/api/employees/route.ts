@@ -1,8 +1,8 @@
 import {
   identifier,
-  NON_AUTHENTIFIE,
+  UNAUTHENTICATED,
 } from "@/lib/server/roles";
-import { listerPersonnel, lireFiche } from "@/lib/server/employees";
+import { listStaff, readRecord } from "@/lib/server/employees";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,13 +16,13 @@ export const dynamic = "force-dynamic";
  * erreur distincte apprendrait à un tiers qu'une fiche existe.
  */
 export async function GET(): Promise<Response> {
-  const appelant = await identifier();
-  if (!appelant) return NON_AUTHENTIFIE();
+  const caller = await identifier();
+  if (!caller) return UNAUTHENTICATED();
 
-  if (appelant.estProprietaire) {
-    return Response.json({ fiches: await listerPersonnel(appelant.contrat) });
+  if (caller.isOwner) {
+    return Response.json({ records: await listStaff(caller.contract) });
   }
 
-  const sienne = await lireFiche(appelant.contrat, appelant.adresse);
-  return Response.json({ fiches: sienne ? [sienne] : [] });
+  const ownRecord = await readRecord(caller.contract, caller.address);
+  return Response.json({ records: ownRecord ? [ownRecord] : [] });
 }

@@ -15,7 +15,7 @@ import {
  * depuis les journaux d'événements, qui sont la seule trace durable — et, du
  * point de vue du chapitre 6, la pièce probatoire opposable.
  */
-export type TypeEvenement =
+export type EventType =
   | "NewEmployeeAdded"
   | "EmployeeRemoved"
   | "SalaryUpdated"
@@ -24,21 +24,21 @@ export type TypeEvenement =
   | "SalaryPaid"
   | "PayrollCompleted";
 
-export type Evenement = {
-  type: TypeEvenement;
+export type PayrollEvent = {
+  type: EventType;
   /** Horodatage du bloc, en secondes. */
   date: bigint;
   blockNumber: bigint;
   hash: Hash;
   logIndex: number;
   /** Adresse concernée, quand l'événement en désigne une. */
-  sujet?: Address;
+  subject?: Address;
   /** Montant en jeu, quand il y en a un. */
-  montant?: bigint;
+  amount?: bigint;
   /** Ancien salaire, pour SalaryUpdated. */
-  ancienMontant?: bigint;
+  previousAmount?: bigint;
   /** Nombre de salariés payés, pour PayrollCompleted. */
-  effectif?: bigint;
+  headcount?: bigint;
 };
 
 const SIGNATURES = [
@@ -72,36 +72,36 @@ const SIGNATURES = [
  * réponse tronquée. On s'aligne donc sur le plus bas par défaut, quitte à le
  * relever par configuration quand le point d'accès le permet.
  */
-const TRANCHE = BigInt(process.env.NEXT_PUBLIC_LOG_RANGE ?? "1000");
+const CHUNK = BigInt(process.env.NEXT_PUBLIC_LOG_RANGE ?? "1000");
 
 /**
  * Cent trente tranches lancées de front feraient refuser l'ensemble pour excès
  * de débit. On les fait passer par un nombre borné de fronts simultanés.
  */
-const FRONTS = 8;
+const CONCURRENCY = 8;
 
-async function enParallele<T, R>(
-  elements: readonly T[],
-  fronts: number,
-  traiter: (e: T) => Promise<R>
+async function inParallel<T, R>(
+  items: readonly T[],
+  concurrency: number,
+  handle: (e: T) => Promise<R>
 ): Promise<R[]> {
-  const resultats: R[] = new Array(elements.length);
-  let suivant = 0;
+  const results: R[] = new Array(items.length);
+  let next = 0;
   await Promise.all(
-    Array.from({ length: Math.min(fronts, elements.length) }, async () => {
-      for (let i = suivant++; i < elements.length; i = suivant++) {
-        resultats[i] = await traiter(elements[i]);
+    Array.from({ length: Math.min(concurrency, items.length) }, async () => {
+      for (let i = next++; i < items.length; i = next++) {
+        results[i] = await handle(items[i]);
       }
     })
   );
-  return resultats;
+  return results;
 }
 
 /**
  * Faute de bloc de création configuré, on remonte une profondeur arbitraire.
  * C'est le repli, pas le régime normal : voir `DEPLOY_BLOCK`.
  */
-const PROFONDEUR = 450_000n;
+const DEPTH = 450_000n;
 
 /**
  * Le balayage initial coûte une requête par tranche, et il y a d'autant plus de
@@ -110,34 +110,34 @@ const PROFONDEUR = 450_000n;
  * session : ensuite, seuls les blocs parus depuis la dernière lecture sont
  * interrogés, ce qui ramène le régime de croisière à une tranche.
  */
-const CACHE = new Map<Address, { jusqua: bigint; evenements: Evenement[] }>();
+const CACHE = new Map<Address, { until: bigint; events: PayrollEvent[] }>();
 
 /*
  * Les journaux ne passent pas par le client de wagmi : ils ont leur propre point
  * d'accès, choisi pour l'étendue qu'il accepte. Le client est construit une fois
  * pour toutes, hors du rendu.
  */
-const clientJournaux = createPublicClient({
+const logsClient = createPublicClient({
   chain: CHAIN,
   transport: http(LOGS_RPC_URL),
 });
 
-export function useEvenements() {
+export function useEvents() {
   return useQuery({
-    queryKey: ["evenements", PAYROLL_ADDRESS],
+    queryKey: ["events", PAYROLL_ADDRESS],
     refetchInterval: 20_000,
     refetchOnWindowFocus: false,
-    queryFn: async (): Promise<Evenement[]> => {
-      const client = clientJournaux;
-      const tete = await client.getBlockNumber();
-      const acquis = CACHE.get(PAYROLL_ADDRESS);
-      const origine =
+    queryFn: async (): Promise<PayrollEvent[]> => {
+      const client = logsClient;
+      const head = await client.getBlockNumber();
+      const settled = CACHE.get(PAYROLL_ADDRESS);
+      const fromBlock =
         DEPLOY_BLOCK > 0n
           ? DEPLOY_BLOCK
-          : tete > PROFONDEUR
-            ? tete - PROFONDEUR
+          : head > DEPTH
+            ? head - DEPTH
             : 0n;
-      const plancher = acquis ? acquis.jusqua + 1n : origine;
+      const floor = settled ? settled.until + 1n : fromBlock;
 
       /*
        * Les tranches sont indépendantes : on les lance par fronts plutôt que
@@ -145,15 +145,15 @@ export function useEvenements() {
        * pose un filtre portant les sept signatures à la fois, là où l'ancienne
        * version en faisait une par signature.
        */
-      const fenetres: Array<{ debut: bigint; fin: bigint }> = [];
-      for (let fin = tete; fin >= plancher; ) {
-        const debut = fin > plancher + TRANCHE ? fin - TRANCHE : plancher;
-        fenetres.push({ debut, fin });
-        if (debut === plancher) break;
-        fin = debut - 1n;
+      const windows: Array<{ start: bigint; end: bigint }> = [];
+      for (let end = head; end >= floor; ) {
+        const start = end > floor + CHUNK ? end - CHUNK : floor;
+        windows.push({ start, end });
+        if (start === floor) break;
+        end = start - 1n;
       }
 
-      const bruts: Evenement[] = [];
+      const rawItems: PayrollEvent[] = [];
 
       /*
        * L'échec n'est plus avalé. Une tranche refusée — plafond dépassé, débit
@@ -162,39 +162,39 @@ export function useEvenements() {
        * lire « je n'ai pas pu lire ». S'agissant de la seule trace probatoire
        * des versements, une absence feinte est pire qu'une erreur affichée.
        */
-      const lots = await enParallele(fenetres, FRONTS, ({ debut, fin }) =>
+      const chunks = await inParallel(windows, CONCURRENCY, ({ start, end }) =>
         client.getLogs({
           address: PAYROLL_ADDRESS,
           events: SIGNATURES,
-          fromBlock: debut,
-          toBlock: fin,
+          fromBlock: start,
+          toBlock: end,
         })
       );
 
-      for (const lot of lots) {
-        for (const log of lot) {
+      for (const chunk of chunks) {
+        for (const log of chunk) {
           const a = log.args as Record<string, unknown>;
-          bruts.push({
-            type: log.eventName as TypeEvenement,
+          rawItems.push({
+            type: log.eventName as EventType,
             date: a.timestamp as bigint,
             blockNumber: log.blockNumber,
             hash: log.transactionHash,
             logIndex: log.logIndex,
-            sujet: (a.employee ?? a.owner) as Address | undefined,
-            montant: (a.salary ?? a.amount ?? a.newSalary ?? a.totalAmountPaid) as
+            subject: (a.employee ?? a.owner) as Address | undefined,
+            amount: (a.salary ?? a.amount ?? a.newSalary ?? a.totalAmountPaid) as
               | bigint
               | undefined,
-            ancienMontant: a.oldSalary as bigint | undefined,
-            effectif: a.numberOfEmployeesPaid as bigint | undefined,
+            previousAmount: a.oldSalary as bigint | undefined,
+            headcount: a.numberOfEmployeesPaid as bigint | undefined,
           });
         }
       }
 
-      const tout = [...(acquis?.evenements ?? []), ...bruts];
-      CACHE.set(PAYROLL_ADDRESS, { jusqua: tete, evenements: tout });
+      const all = [...(settled?.events ?? []), ...rawItems];
+      CACHE.set(PAYROLL_ADDRESS, { until: head, events: all });
 
       // Du plus récent au plus ancien, départage par position dans le bloc.
-      return [...tout].sort((x, y) =>
+      return [...all].sort((x, y) =>
         x.blockNumber === y.blockNumber
           ? y.logIndex - x.logIndex
           : Number(y.blockNumber - x.blockNumber)
@@ -203,7 +203,7 @@ export function useEvenements() {
   });
 }
 
-export const LIBELLES: Record<TypeEvenement, string> = {
+export const LABELS: Record<EventType, string> = {
   NewEmployeeAdded: "Salarié ajouté",
   EmployeeRemoved: "Salarié retiré",
   SalaryUpdated: "Salaire modifié",

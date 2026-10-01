@@ -6,7 +6,7 @@ import {
   CHAIN,
   explorerTx,
 } from "@/lib/contracts/config";
-import type { Fiche } from "../hooks/use-directory";
+import type { EmployeeRecord } from "../hooks/use-directory";
 
 /**
  * Bulletin de paie, produit hors chaîne.
@@ -21,16 +21,16 @@ import type { Fiche } from "../hooks/use-directory";
  * conformité n'a pas été vérifiée. Le document ci-dessous porte les mentions que
  * le dispositif permet d'établir, pas davantage.
  */
-export type DonneesBulletin = {
-  salarie: Fiche | undefined;
-  adresse: string;
-  montant: bigint;
+export type PayslipData = {
+  employee: EmployeeRecord | undefined;
+  address: string;
+  amount: bigint;
   /** Horodatage du bloc, en secondes. */
   date: bigint;
   hash: string;
 };
 
-const MARGE = 18;
+const MARGIN = 18;
 
 /**
  * jsPDF n'embarque pas de police : il s'appuie sur les polices standard du
@@ -46,101 +46,101 @@ const MARGE = 18;
  * On ne touche pas à `formatToken` : à l'écran, l'espace fine est le bon
  * caractère. C'est l'impression qui a cette contrainte, pas le formatage.
  */
-function assainir(texte: string): string {
-  return texte
+function sanitize(text: string): string {
+  return text
     .replace(/[      ]/g, " ")
     .replace(/−/g, "-");
 }
 
-export function engendrerBulletin(d: DonneesBulletin): jsPDF {
+export function generatePayslip(d: PayslipData): jsPDF {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const largeur = doc.internal.pageSize.getWidth();
-  let y = MARGE;
+  const width = doc.internal.pageSize.getWidth();
+  let y = MARGIN;
 
-  const titre = (t: string) => {
+  const title = (t: string) => {
     doc.setFont("helvetica", "bold").setFontSize(13);
-    doc.text(assainir(t), MARGE, y);
+    doc.text(sanitize(t), MARGIN, y);
     y += 7;
   };
 
   const section = (t: string) => {
     y += 3;
     doc.setFont("helvetica", "bold").setFontSize(9.5);
-    doc.text(assainir(t).toUpperCase(), MARGE, y);
+    doc.text(sanitize(t).toUpperCase(), MARGIN, y);
     y += 1.5;
-    doc.setDrawColor(190).line(MARGE, y, largeur - MARGE, y);
+    doc.setDrawColor(190).line(MARGIN, y, width - MARGIN, y);
     y += 5;
   };
 
-  const ligne = (label: string, valeur: string, gras = false) => {
+  const row = (label: string, value: string, bold = false) => {
     doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(90);
-    doc.text(assainir(label), MARGE, y);
+    doc.text(sanitize(label), MARGIN, y);
     doc
-      .setFont("helvetica", gras ? "bold" : "normal")
+      .setFont("helvetica", bold ? "bold" : "normal")
       .setTextColor(20);
-    doc.text(assainir(valeur), largeur - MARGE, y, { align: "right" });
+    doc.text(sanitize(value), width - MARGIN, y, { align: "right" });
     y += 5.5;
   };
 
-  const nom = d.salarie
-    ? `${d.salarie.prenom} ${d.salarie.nom}`.trim()
+  const lastName = d.employee
+    ? `${d.employee.firstName} ${d.employee.lastName}`.trim()
     : "Identité non renseignée";
 
-  titre("Bulletin de paie");
+  title("Bulletin de paie");
   doc.setFont("helvetica", "normal").setFontSize(9).setTextColor(110);
   doc.text(
-    assainir(`Émis le ${formatDateTime(BigInt(Math.floor(Date.now() / 1000)))}`),
-    MARGE,
+    sanitize(`Émis le ${formatDateTime(BigInt(Math.floor(Date.now() / 1000)))}`),
+    MARGIN,
     y
   );
   y += 8;
 
   section("Salarié");
-  ligne("Nom et prénoms", nom);
-  ligne("Poste", d.salarie?.poste || "—");
-  ligne("Date d'embauche", d.salarie?.embauche || "—");
-  ligne("Adresse de règlement", d.adresse);
+  row("Nom et prénoms", lastName);
+  row("Poste", d.employee?.jobTitle || "—");
+  row("Date d'embauche", d.employee?.hireDate || "—");
+  row("Adresse de règlement", d.address);
 
   section("Période et versement");
-  ligne("Date du versement", formatDateTime(d.date));
-  ligne("Monnaie de règlement", `${TOKEN_SYMBOL} (jeton ERC-20)`);
-  ligne("Montant net versé", formatToken(d.montant), true);
+  row("Date du versement", formatDateTime(d.date));
+  row("Monnaie de règlement", `${TOKEN_SYMBOL} (jeton ERC-20)`);
+  row("Montant net versé", formatToken(d.amount), true);
 
   section("Preuve du paiement");
-  ligne("Réseau", `${CHAIN.name} (id ${CHAIN.id})`);
-  ligne("Contrat émetteur", PAYROLL_ADDRESS);
-  ligne("Transaction", shortHash(d.hash));
+  row("Réseau", `${CHAIN.name} (id ${CHAIN.id})`);
+  row("Contrat émetteur", PAYROLL_ADDRESS);
+  row("Transaction", shortHash(d.hash));
 
   y += 2;
   doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(110);
   const note = doc.splitTextToSize(
-    assainir("Le versement ci-dessus est attesté par la transaction référencée, inscrite de façon " +
+    sanitize("Le versement ci-dessus est attesté par la transaction référencée, inscrite de façon " +
       "horodatée et infalsifiable sur le registre public. Elle est vérifiable par tout tiers " +
       "à l'adresse suivante : " +
       explorerTx(d.hash)),
-    largeur - 2 * MARGE
+    width - 2 * MARGIN
   );
-  doc.text(note, MARGE, y);
+  doc.text(note, MARGIN, y);
   y += note.length * 4 + 4;
 
   const reserve = doc.splitTextToSize(
-    assainir("Réserve : ce document est produit hors chaîne à titre de justificatif de versement. " +
+    sanitize("Réserve : ce document est produit hors chaîne à titre de justificatif de versement. " +
       "Il ne comporte ni retenues ni cotisations sociales, le dispositif n'en gérant aucune, " +
       "et sa contexture n'a pas été vérifiée au regard de l'arrêté pris en application de " +
       "l'article 166 du Code du travail."),
-    largeur - 2 * MARGE
+    width - 2 * MARGIN
   );
   doc.setTextColor(140);
-  doc.text(reserve, MARGE, y);
+  doc.text(reserve, MARGIN, y);
 
   return doc;
 }
 
-export function nomFichierBulletin(d: DonneesBulletin): string {
+export function payslipFileName(d: PayslipData): string {
   const date = new Date(Number(d.date) * 1000);
-  const aaaammjj = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
-  const qui = d.salarie?.nom
-    ? d.salarie.nom.toLowerCase().replace(/[^a-z0-9]+/g, "-")
-    : d.adresse.slice(2, 10).toLowerCase();
-  return `bulletin-${aaaammjj}-${qui}.pdf`;
+  const yyyymmdd = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, "0")}${String(date.getDate()).padStart(2, "0")}`;
+  const who = d.employee?.lastName
+    ? d.employee.lastName.toLowerCase().replace(/[^a-z0-9]+/g, "-")
+    : d.address.slice(2, 10).toLowerCase();
+  return `bulletin-${yyyymmdd}-${who}.pdf`;
 }

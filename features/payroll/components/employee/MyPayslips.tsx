@@ -9,31 +9,31 @@ import { SkeletonRows } from "@/components/skeleton-rows";
 import { TxLink } from "@/components/explorer-link";
 import { Button } from "@/components/ui/button";
 import { RegisteredMark } from "../RegisteredMark";
-import { useMonEspace } from "../../hooks/use-mon-espace";
-import { useEmettreBulletin, useRegistre, repere } from "../../hooks/use-bulletins";
+import { useMyAccount } from "../../hooks/use-my-account";
+import { useIssuePayslip, usePayslipRegistry, logKey } from "../../hooks/use-payslips";
 
-export default function MesBulletins() {
-  const { versements, adresse, enCours, echecJournaux } = useMonEspace();
-  const emettre = useEmettreBulletin();
-  const { emis } = useRegistre();
+export default function MyPayslips() {
+  const { payments, address, busy, logsFailure } = useMyAccount();
+  const issue = useIssuePayslip();
+  const { issued } = usePayslipRegistry();
 
   return (
-    <Panel title={`Mes bulletins (${versements.length})`}>
+    <Panel title={`Mes bulletins (${payments.length})`}>
       <p className="mb-3 text-ink-2">
         Un bulletin est produit pour chaque versement. Il est engendré hors chaîne, à
         la demande, et rattaché à la transaction qui l&apos;atteste : le document n&apos;est
         pas la preuve, il en est le reflet lisible.
       </p>
 
-      {enCours ? (
+      {busy ? (
         <SkeletonRows rows={5} />
-      ) : echecJournaux ? (
+      ) : logsFailure ? (
         <LogsReadError>
           Les journaux n&apos;ont pas pu être lus. Aucun bulletin ne peut être
           produit tant que les versements qu&apos;ils attestent restent
           inaccessibles.
         </LogsReadError>
-      ) : versements.length === 0 ? (
+      ) : payments.length === 0 ? (
         <EmptyState title="Aucun bulletin disponible">
           Un bulletin est produit après chaque paie exécutée. Le premier sera
           disponible dès votre premier versement.
@@ -49,13 +49,13 @@ export default function MesBulletins() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {versements.map((v) => (
+            {payments.map((v) => (
               <TableRow key={`${v.hash}-${v.logIndex}`}>
                 <TableCell className="whitespace-nowrap font-mono text-ink-2">
                   {formatDateTime(v.date)}
                 </TableCell>
                 <TableCell align="right" className="font-mono">
-                  {formatToken(v.montant!)}
+                  {formatToken(v.amount!)}
                 </TableCell>
                 <TableCell align="right">
                   <TxLink hash={v.hash} />
@@ -65,9 +65,9 @@ export default function MesBulletins() {
                     variant="secondary"
                     size="xs"
                     onClick={() =>
-                      emettre({
-                        adresse: adresse!,
-                        montant: v.montant!,
+                      issue({
+                        address: address!,
+                        amount: v.amount!,
                         date: v.date,
                         hash: v.hash,
                         logIndex: v.logIndex,
@@ -76,7 +76,7 @@ export default function MesBulletins() {
                   >
                     Télécharger
                   </Button>
-                  {emis.has(repere(v.hash, v.logIndex)) && <RegisteredMark />}
+                  {issued.has(logKey(v.hash, v.logIndex)) && <RegisteredMark />}
                 </TableCell>
               </TableRow>
             ))}

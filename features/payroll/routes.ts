@@ -1,4 +1,4 @@
-import type { Ecran } from "./components/AppShell";
+import type { ScreenCode } from "./components/AppShell";
 import type { Role } from "./hooks/use-payroll";
 
 /**
@@ -15,7 +15,7 @@ import type { Role } from "./hooks/use-payroll";
  * ambiguïté : une adresse n'ouvre jamais qu'un seul des deux espaces, celui
  * que le contrat lui reconnaît.
  */
-export const CHEMINS: Record<Ecran, string> = {
+export const PATHS: Record<ScreenCode, string> = {
   B1: "/overview",
   B2: "/employees",
   B3: "/employees/add",
@@ -38,9 +38,9 @@ export const CHEMINS: Record<Ecran, string> = {
  * le portefeuille, ou d'une adresse saisie à la main — retombe sur la vue
  * d'ensemble de ce rôle plutôt que d'afficher un écran interdit.
  */
-export function ecranDepuisChemin(chemin: string, role: Role): Ecran {
-  const prefixe = role === "employeur" ? "B" : "C";
-  const entrees = Object.entries(CHEMINS) as Array<[Ecran, string]>;
-  const trouve = entrees.find(([e, c]) => e.startsWith(prefixe) && c === chemin);
-  return trouve ? trouve[0] : role === "employeur" ? "B1" : "C1";
+export function screenFromPath(path: string, role: Role): ScreenCode {
+  const prefix = role === "employer" ? "B" : "C";
+  const entries = Object.entries(PATHS) as Array<[ScreenCode, string]>;
+  const found = entries.find(([e, c]) => e.startsWith(prefix) && c === path);
+  return found ? found[0] : role === "employer" ? "B1" : "C1";
 }
