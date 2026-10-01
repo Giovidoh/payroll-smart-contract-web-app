@@ -27,8 +27,6 @@ export type TxStep = { label: string; state: "waiting" | "active" | "done" };
 export type Operation = {
   /** Intitulé affiché en tête de la boîte de dialogue. */
   title: string;
-  /** Code d'écran de la maquette, affiché en petit à droite du titre. */
-  code: string;
   /** Phrase qui explique ce que l'utilisateur s'apprête à signer. */
   message: string;
   /** Récapitulatif chiffré, affiché avant signature. */

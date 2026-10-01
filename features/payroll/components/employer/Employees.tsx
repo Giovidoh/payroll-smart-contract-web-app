@@ -326,7 +326,6 @@ function AddPanel({
           onClick={() => {
             onRequest({
               title: "Ajouter un salarié",
-              code: "B3",
               message:
                 "Le contrat inscrira cette adresse et son salaire. La masse salariale augmentera d'autant, et la réserve immobilisée avec elle.",
               rows: [
@@ -403,7 +402,6 @@ function SalaryPanel({
           onClick={() => {
             onRequest({
               title: "Modifier un salaire",
-              code: "B4",
               message:
                 "Le nouveau salaire s'appliquera dès le prochain cycle. Les versements déjà effectués ne sont pas rétroactivement modifiés — la chaîne ne réécrit pas le passé.",
               rows: [
@@ -478,7 +476,6 @@ function WithdrawPanel({
           onClick={() => {
             onRequest({
               title: "Retirer un salarié",
-              code: "B5",
               message:
                 "Cette adresse sera retirée de la liste des bénéficiaires. La masse salariale et la réserve immobilisée diminueront d'autant.",
               rows: [{ label: "Salarié", value: shortAddress(address) }],

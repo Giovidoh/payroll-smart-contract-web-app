@@ -122,7 +122,6 @@ export default function PayrollRun({
           onClick={() =>
             onRequest({
               title: "Exécuter la paie",
-              code: "B7",
               message:
                 "Tous les salaires sont versés en une seule transaction. L'opération est atomique : ou bien chaque salarié est payé, ou bien aucun ne l'est.",
               rows: [

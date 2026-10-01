@@ -6,15 +6,6 @@ import { CardHeader } from "@/components/ui/card";
 import { TxLink } from "@/components/explorer-link";
 import type { TxState, TxStep, Operation } from "../hooks/use-transaction";
 
-const CODES: Record<TxState["phase"], string> = {
-  idle: "",
-  confirmation: "D1",
-  signature: "D2",
-  waiting: "D2",
-  success: "D3",
-  failure: "D4",
-};
-
 export default function TransactionDialog({
   operation,
   state,
@@ -57,9 +48,6 @@ export default function TransactionDialog({
       >
         <CardHeader>
           <span className="font-semibold">{operation.title}</span>
-          <span className="font-mono text-[11px] text-ink-3">
-            {operation.code} · {CODES[state.phase]}
-          </span>
         </CardHeader>
 
         {steps && steps.length > 0 && (

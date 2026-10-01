@@ -144,7 +144,6 @@ function DepositPanel({
         onClick={() =>
           onRequest({
             title: "Approvisionner le contrat",
-            code: "B6",
             message:
               "Les fonds déposés deviennent immédiatement soumis à la réserve : la part couvrant les cycles réservés ne pourra plus être retirée.",
             rows: [{ label: "Montant", value: formatToken(amount!) }],
@@ -232,7 +231,6 @@ function WithdrawPanel({
         onClick={() =>
           onRequest({
             title: "Retirer du surplus",
-            code: "B6",
             message:
               "Ce retrait ne porte que sur la part excédant la réserve. Le contrat vérifiera lui-même que la réserve reste intacte.",
             rows: [{ label: "Montant", value: formatToken(amount!) }],

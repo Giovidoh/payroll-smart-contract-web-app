@@ -108,7 +108,6 @@ export default function Settings({
           onClick={() =>
             onRequest({
               title: "Proposer le transfert de propriété",
-              code: "B9",
               message:
                 "Vous proposez le transfert. Vous restez propriétaire tant que le destinataire n'a pas accepté depuis son portefeuille.",
               rows: [{ label: "Destinataire", value: shortAddress(newOwner) }],

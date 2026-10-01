@@ -94,7 +94,6 @@ export default function TriggerPayroll({
           onClick={() =>
             onRequest({
               title: "Déclencher la paie",
-              code: "C5",
               message:
                 "Vous déclenchez le versement de l'ensemble des salaires. Les fonds sont ceux du contrat ; vous n'avancez que les frais de réseau.",
               rows: [

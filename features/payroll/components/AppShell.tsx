@@ -146,7 +146,7 @@ export default function AppShell({
             <div>
               <div className="font-semibold">{TITLES[screen]}</div>
               <div className="font-mono text-[11px] text-ink-3">
-                {screen} · {CHAIN.name}
+                {CHAIN.name}
               </div>
             </div>
             <ThemeToggle />
